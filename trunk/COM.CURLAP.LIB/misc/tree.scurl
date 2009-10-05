@@ -1,0 +1,150 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import public TreeModel, TreeNode, ListModel, DefaultListModel from CURL.GUI.CONTROLS}
+||--{import * from CURL.DATA-ACCESS.BASE}
+
+{doc-next {purpose TreeModelのユーティリティ}}
+{define-class public open TreeModelUtil
+
+  {doc-next
+    {purpose TreeModel.rootの子要素一覧をListModelとして取得（一階層下の子のみ対象）}
+  }
+  {define-proc public {to-list-model
+                          tree-model:TreeModel
+                      }:ListModel
+    def list-model = {DefaultListModel}
+    {if-non-null root = tree-model.root then
+        {for node in root do
+            {list-model.append node.node-data}
+        }
+    }
+    {return list-model}
+  }
+
+  {doc-next
+    {purpose TreeModel.rootの子要素一覧をArrayとして取得（一階層下の子のみ対象）}
+  }
+  {define-proc public {to-array
+                          tree-model:TreeModel
+                      }:Array
+    def array = {Array}
+    {if-non-null root = tree-model.root then
+        {for node in root do
+            {array.append node.node-data}
+        }
+    }
+    {return array}
+  }
+
+||--  {doc-next
+||--    {purpose TreeModel.rootの子要素一覧をRecordSetとして取得（全階層対象）}
+||--  }
+||--  {define-proc public {to-record-set
+||--                          tree-model:TreeModel
+||--                      }:RecordSet
+||--    
+||--  }
+
+}
+
+
+{doc-next
+    {purpose TreeNodeのユーティリティ}
+}
+{define-class public TreeNodeUtil
+
+  {doc-next
+    {purpose TreeNodeの子要素一覧をListModelとして取得（一階層下の子のみ対象）}
+  }
+  {define-proc public {to-list-model
+                          tree-node:TreeNode
+                      }:ListModel
+    def list-model = {DefaultListModel}
+    {for node in tree-node do
+        {list-model.append node.node-data}
+    }
+    {return list-model}
+  }
+
+  {doc-next
+    {purpose ListModelからTreeNodeを生成}
+  }
+  {define-proc public {from-list-model
+                          list-model:ListModel
+                      }:TreeNode
+    def tree-node = {TreeNode}
+    {for element in list-model do
+        {tree-node.append element}
+    }
+    {return tree-node}
+  }
+  
+  {doc-next
+    {purpose TreeNodeの子要素一覧をArrayとして取得（一階層下の子のみ対象）}
+  }
+  {define-proc public {to-array
+                          tree-node:TreeNode
+                      }:Array
+    def array = {Array}
+    {for node in tree-node do
+        {array.append node.node-data}
+    }
+    {return array}
+  }
+
+  {doc-next
+    {purpose ArrayからTreeNodeを生成}
+  }
+  {define-proc public {from-array
+                          array:Array
+                      }:TreeNode
+    def tree-node = {TreeNode}
+    {for element in array do
+        {tree-node.append element}
+    }
+    {return tree-node}
+  }
+
+||--  {doc-next
+||--    {purpose TreeNodeの子要素一覧をRecordSetとして取得（全階層対象）}
+||--  }
+||--  {define-proc public {to-record-set
+||--                          tree-node:TreeNode
+||--                      }:RecordSet
+||--  }
+
+||--  {doc-next
+||--    {purpose RecordSetからTreeNodeを生成}
+||--  }
+||--  {define-proc public {from-record-set
+||--                          record-set:RecordSet
+||--                      }:TreeNode
+||--    def root = {TreeNode}
+||--    {for f in record-set.fields do
+||--        def name = f.name
+||--        {for record in record-set do
+||--            || TODO
+||--            ||record[name]
+||--        }
+||--    }
+||--    {return root}
+||--  }
+}
+
+    

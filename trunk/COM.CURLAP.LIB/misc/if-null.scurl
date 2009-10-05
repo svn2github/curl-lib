@@ -1,0 +1,52 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+|| FIXME: Should add else?
+{doc-next
+    {purpose
+        値が null かどうかにより条件分岐させたい場合に、省略して記述することができます。
+    }
+    {details
+        例えば、次のように v が null かどうかによって x に設定したい値が異なる場合に使用します。
+        この場合、v は null なので x には空文字が設定されます。
+        {curl-code
+            let v:#String = null
+            def x:String = {if-null v then ""}
+        }
+    }
+}
+{define-macro public {if-null
+                         ?val:expression
+                      then
+                         ?body:tokens
+                     }
+    {return
+        {expand-template
+            {value
+                {if {type-of ?val}.primitive? then
+                    {error "nullを指定できない型です。"}
+                }
+                {if-non-null v = ?val then
+                    v
+                 else
+                    ?body
+                }
+            }
+        }
+    }
+}

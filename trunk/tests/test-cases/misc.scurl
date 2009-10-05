@@ -1,0 +1,541 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada, Yoshitaka Fukuta
+|||
+
+{curl-file-attributes character-encoding = "utf8"}
+
+{import * from COM.CURLAP.LIB.MISC}
+{import * from  CURL.GUI.DIALOGS}
+
+|| TestCase
+{TestSuite "COM.CURLAP.LIB.MISC",
+    {test-case "if-null",
+        let v:#String = null
+        def x:String = {if-null v then "null"}
+        {TestCondition.assert x == "null"}
+
+        || no return value
+        {if-null v then
+            {TestCondition.assert true}
+        }
+        
+        set v = "not-null"
+        def y:String = {if-null v then "null"}
+        {TestCondition.assert y == v}
+    },
+    {test-case "tree-model",
+        def model =
+            {TreeModel
+                root =
+                    {TreeNode
+                        {TreeNode node-data = "Carl",
+                            {TreeNode node-data = "A1"},
+                            {TreeNode node-data = "A2"},
+                            {TreeNode node-data = "A3"}
+                        },
+                        {TreeNode node-data = "Akira",
+                            {TreeNode node-data = "B1"},
+                            {TreeNode node-data = "B2"}
+                        },
+                        {TreeNode node-data = "Hitoshi",
+                            {TreeNode node-data = "C1"},
+                            {TreeNode node-data = "C2"}
+                        }
+                    }
+            }
+        def list-model = {TreeModelUtil.to-list-model model}
+        {TestCondition.assert list-model isa ListModel}
+        {TestCondition.assert list-model.size == 3}
+
+        def tree-node = {TreeNodeUtil.to-array {non-null model.root}}
+        {TestCondition.assert tree-node isa Array}
+        {TestCondition.assert tree-node.size == 3}
+    },
+    
+    || SQLUtil
+    {test-case "delete-table",
+        def source =
+            {RecordSet
+                {RecordFields
+                    {RecordField "NAME", domain = String},
+                    {RecordField "AGE", domain = int},
+                    {RecordField "MONEY", domain = int},
+                    {RecordField "NO", domain = String}                     
+                },
+                {RecordData NAME = "Tony", AGE = 23, MONEY = 2300, NO = "F0123456780"},
+                {RecordData NAME = "Throm", AGE = 26, MONEY = 5678, NO = "F0123456781"},
+                {RecordData NAME = "Json", AGE = 24, MONEY = 2345, NO = "F0123456782"},
+                {RecordData NAME = "Luby", AGE = 21, MONEY = 3213, NO = "F0123456783"},
+                {RecordData NAME = "Ruris", AGE = 32, MONEY = 2145, NO = "F0123456784"},
+                {RecordData NAME = "Suma", AGE = 23, MONEY = 3425, NO = "F0123456785"},
+                {RecordData NAME = "Jima", AGE = 23, MONEY = 4325, NO = "F0123456786"}
+            }
+        
+        || delete no condition
+        {do
+            def (sql:String, bind-vars:FastArray) = {SQLUtil.delete "PERSON"}
+            {TestCondition.assert sql == "DELETE FROM PERSON"}
+            {TestCondition.assert bind-vars.size == 0}
+        }
+        
+        || delete with table conditions
+        {do
+            def rd:Record = {source.new-record}
+            {rd.set "NAME", "wangwx"}
+            {rd.set "AGE", 27}
+            {rd.set "MONEY", 100000}
+            {rd.set "NO", "1111"}
+            def (sql:String, bind-vars:#FastArray) =
+                {SQLUtil.delete "PERSON", condition = {Condition.from-Record rd, pending? = true}}
+            {TestCondition.assert sql == "DELETE FROM PERSON WHERE NAME = ? AND AGE = ? AND MONEY = ? AND NO = ?"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == 27}
+            {TestCondition.assert bind-vars[2] == 100000}
+            {TestCondition.assert bind-vars[3] == "1111"}
+        }
+        
+        || delete one record 
+        {do
+            {try
+                def rd:Record = {source.new-record}
+                {rd.set "NAME", "wangwx"}
+                {rd.set "AGE", 27}
+                {rd.set "MONEY", 100000}
+                {rd.set "NO", "1111"}
+                def rd1:Record = {source.new-record}
+                {rd1.set "NAME", "wangwx1"}
+                {rd1.set "AGE", 21}
+                {rd1.set "MONEY", 100001}
+                {rd1.set "NO", "1112"}
+                def (sql:String, bind-vars:#FastArray) =
+                    {SQLUtil.delete "PERSON", condition = {Condition.from-Record rd, pending? = true}, rd1}
+             catch e:Exception do
+                || 妥当な例外処理を書いてください。
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "delete文にて、conditionとrecordという二つのパラメータを一緒に使うことができません。"}
+            }
+        }
+
+        || delete on record with condition
+        {do
+            def rd:Record = {source.new-record}
+            {rd.set "NAME", "wangwx"}
+            {rd.set "AGE", 27}
+            {rd.set "MONEY", 100000}
+            {rd.set "NO", "1111"}
+
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.delete "PERSON", rd}
+            {TestCondition.assert sql == "DELETE FROM PERSON WHERE NAME = ? AND AGE = ? AND MONEY = ? AND NO = ?"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == 27}
+            {TestCondition.assert bind-vars[2] == 100000}
+            {TestCondition.assert bind-vars[3] == "1111"}
+        }
+
+        || delete a lot of records
+        {do
+            def rd:Record = {source.new-record}
+            {rd.set "NAME", "wangwx"}
+            {rd.set "AGE", 27}
+            {rd.set "MONEY", 100000}
+            {rd.set "NO", "1111"}
+            def rd1:Record = {source.new-record}
+            {rd1.set "NAME", "wangwx1"}
+            {rd1.set "AGE", 21}
+            {rd1.set "MONEY", 100001}
+            {rd1.set "NO", "1112"}
+            
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.delete "PERSON",rd,rd1}
+            {TestCondition.assert sql == "DELETE FROM PERSON WHERE  ( NAME = ? AND AGE = ? AND MONEY = ? AND NO = ? )  or  ( NAME = ? AND AGE = ? AND MONEY = ? AND NO = ? ) "}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == 27}
+            {TestCondition.assert bind-vars[2] == 100000}
+            {TestCondition.assert bind-vars[3] == "1111"}
+            {TestCondition.assert bind-vars[4] == "wangwx1"}
+            {TestCondition.assert bind-vars[5] == 21}
+            {TestCondition.assert bind-vars[6] == 100001}
+            {TestCondition.assert bind-vars[7] == "1112"}
+        }
+    },
+
+    {test-case "insert-table",
+        def source =
+            {RecordSet
+                {RecordFields
+                    {RecordField "NAME", domain = String},
+                    {RecordField "AGE", domain = int},
+                    {RecordField "MONEY", domain = int},
+                    {RecordField "NO", domain = String}                     
+                },
+                {RecordData NAME = "Tony", AGE = 23, MONEY = 2300, NO = "F0123456780"},
+                {RecordData NAME = "Throm", AGE = 26, MONEY = 5678, NO = "F0123456781"},
+                {RecordData NAME = "Json", AGE = 24, MONEY = 2345, NO = "F0123456782"},
+                {RecordData NAME = "Luby", AGE = 21, MONEY = 3213, NO = "F0123456783"},
+                {RecordData NAME = "Ruris", AGE = 32, MONEY = 2145, NO = "F0123456784"},
+                {RecordData NAME = "Suma", AGE = 23, MONEY = 3425, NO = "F0123456785"},
+                {RecordData NAME = "Jima", AGE = 23, MONEY = 4325, NO = "F0123456786"}
+            }
+        || insert error
+        {do
+            {try
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.insert "PERSON"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "insert文に少なくとも一つのパラメータがあります。"}
+            }
+        }
+
+        || insert one record
+        {do
+            def rd:Record = {source.new-record}
+            {rd.set "NAME", "wangwx"}
+            {rd.set "AGE", 27}
+            {rd.set "MONEY", 100000}
+            {rd.set "NO", "1111"}
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.insert "PERSON", rd}
+            {TestCondition.assert sql == "INSERT INTO PERSON(NAME, AGE, MONEY, NO) VALUES(?, ?, ?, ?)"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == 27}
+            {TestCondition.assert bind-vars[2] == 100000}
+            {TestCondition.assert bind-vars[3] == "1111"}
+        }
+
+        || insert a lot of records
+        {do
+            {try
+                def rd:Record = {source.new-record}
+                {rd.set "NAME", "wangwx"}
+                {rd.set "AGE", 27}
+                {rd.set "MONEY", 100000}
+                {rd.set "NO", "1111"}
+
+                def rd1:Record = {source.new-record}
+                {rd1.set "NAME", "wangwx1"}
+                {rd1.set "AGE", 21}
+                {rd1.set "MONEY", 100001}
+                {rd1.set "NO", "1112"}
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.insert "PERSON", rd,rd1}   
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "insert文に複数のRecordパラメータが存在することができません。"}
+            }
+        }
+
+        || insert one argument
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.insert "PERSON", NAME = "wangwx"}
+            {TestCondition.assert sql == "INSERT INTO PERSON(NAME) VALUES(?)"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+        }
+
+        || insert a lot of arguments
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.insert "PERSON", NAME = "wangwx",AGE = 27}
+            {TestCondition.assert sql == "INSERT INTO PERSON(NAME, AGE) VALUES(?, ?)"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == 27}
+        }
+
+        || insert a lot of arguments with first record
+        {do
+            {try
+                def rd:Record = {source.new-record}
+                {rd.set "NAME", "wangwx"}
+                {rd.set "AGE", 27}
+                {rd.set "MONEY", 100000}
+                {rd.set  "NO", "1111"}
+                def (sql:String, bind-vars:#FastArray) =
+                    {SQLUtil.insert "PERSON", rd,NAME ="wangwx",AGE = 27,MONEY =100000,NO = "1111"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "insert文に複数のRecordパラメータが存在することができません。"}
+            }
+        }
+
+        || insert a lot of arguments with first argument
+        {do 
+            {try
+                def rd:Record = {source.new-record}
+                {rd.set "NAME", "wangwx"}
+                {rd.set "AGE", 27}
+                {rd.set "MONEY", 100000}
+                {rd.set "NO", "1111"}
+                def (sql:String, bind-vars:#FastArray) =
+                    {SQLUtil.insert "PERSON", NAME ="wangwx", rd, AGE = 27, MONEY =100000, NO = "1111"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "パラメータにkey値が必要です。"}
+            }
+        }
+
+        || insert other arugment
+        {do
+            {try
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.insert "PERSON", "wangwx"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "パラメータにkey値が必要です。"}
+            }
+        }
+    },
+
+    {test-case "select-table",
+        def source =
+            {RecordSet
+                {RecordFields
+                    {RecordField "NAME", domain = String},
+                    {RecordField "AGE", domain = int},
+                    {RecordField "MONEY", domain = int},
+                    {RecordField "NO", domain = String}                     
+                },
+                {RecordData NAME = "Tony", AGE = 23, MONEY = 2300, NO = "F0123456780"},
+                {RecordData NAME = "Throm", AGE = 26, MONEY = 5678, NO = "F0123456781"},
+                {RecordData NAME = "Json", AGE = 24, MONEY = 2345, NO = "F0123456782"},
+                {RecordData NAME = "Luby", AGE = 21, MONEY = 3213, NO = "F0123456783"},
+                {RecordData NAME = "Ruris", AGE = 32, MONEY = 2145, NO = "F0123456784"},
+                {RecordData NAME = "Suma", AGE = 23, MONEY = 3425, NO = "F0123456785"},
+                {RecordData NAME = "Jima", AGE = 23, MONEY = 4325, NO = "F0123456786"}
+            }
+        || select
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON"}
+            {TestCondition.assert sql == "SELECT * FROM PERSON"}
+        }
+
+        || select with table column
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", columns = "NAME,AGE"}
+            {TestCondition.assert sql == "SELECT NAME,AGE FROM PERSON"}
+        }
+
+        || select by join
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "TB_BRANCH", joins = "LEFT JOIN TB_BANK ON TB_BANK.bank_bank_id = branch_bank_id"}
+            {TestCondition.assert sql == "SELECT * FROM TB_BRANCH LEFT JOIN TB_BANK ON TB_BANK.bank_bank_id = branch_bank_id"}
+        }
+
+        || select with conditions
+        {do
+            def rd:Record = {source.new-record}
+            {rd.set    "NAME","wangwx"}
+            {rd.set    "AGE",27}
+            {rd.set    "MONEY",100000}
+            {rd.set    "NO","1111"}
+            def (sql:String, bind-vars:#FastArray) =
+                {SQLUtil.select "PERSON", condition =
+                    {Condition "NAME = ? AND AGE = ? AND MONEY = ? AND NO = ?",
+                        "wangwx",
+                        27,
+                        100000,
+                        "1111"
+                    }
+                }
+            {TestCondition.assert sql == "SELECT * FROM PERSON WHERE NAME = ? AND AGE = ? AND MONEY = ? AND NO = ?"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == 27}
+            {TestCondition.assert bind-vars[2] == 100000}
+            {TestCondition.assert bind-vars[3] == "1111"}
+        }
+
+        || select group by
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", columns = "AGE", group-by = "AGE"}
+            {TestCondition.assert sql == "SELECT AGE FROM PERSON GROUP BY AGE"}
+        }
+
+        || having by
+        {do
+            {try
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", columns = "AGE",  having-by = "AGE"}
+                {TestCondition.assert sql == "SELECT AGE FROM PERSON HAVING AGE"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "having句はgroup-by句と一緒に使う必要があります。"}
+            }
+        }
+
+        || having by and group by
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", columns = "NAME,AGE", group-by = "NAME,AGE",having-by = "AGE > 25"}
+            {TestCondition.assert sql == "SELECT NAME,AGE FROM PERSON GROUP BY NAME,AGE HAVING AGE > 25"}
+        }
+
+        || order by
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", order-by = "AGE"}
+            {TestCondition.assert sql == "SELECT * FROM PERSON ORDER BY AGE"}
+        }
+
+        || lock
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", lock? = true}
+            {TestCondition.assert sql == "SELECT * FROM PERSON FOR UPDATE"}
+        }
+
+        || group by and lock
+        {do
+            {try
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", group-by = "NAME,AGE",lock? = true}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "for update文をgroup-by句と一緒に使うことができません。"}
+            }
+        }
+
+        || table lock
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", lock? = true}
+            {TestCondition.assert sql == "SELECT * FROM PERSON FOR UPDATE"}
+        }
+
+        || some options
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.select "PERSON", columns = "NAME,AGE", group-by = "NAME,AGE",having-by = "AGE > 25", order-by = "NAME"}
+            {TestCondition.assert sql == "SELECT NAME,AGE FROM PERSON GROUP BY NAME,AGE HAVING AGE > 25 ORDER BY NAME"}
+        }
+    },
+
+    {test-case "update-table",
+        def source =
+            {RecordSet
+                {RecordFields
+                    {RecordField "NAME", domain = String},
+                    {RecordField "AGE", domain = int},
+                    {RecordField "MONEY", domain = int},
+                    {RecordField "NO", domain = String}                     
+                },
+                {RecordData NAME = "Tony", AGE = 23, MONEY = 2300, NO = "F0123456780"},
+                {RecordData NAME = "Throm", AGE = 26, MONEY = 5678, NO = "F0123456781"},
+                {RecordData NAME = "Json", AGE = 24, MONEY = 2345, NO = "F0123456782"},
+                {RecordData NAME = "Luby", AGE = 21, MONEY = 3213, NO = "F0123456783"},
+                {RecordData NAME = "Ruris", AGE = 32, MONEY = 2145, NO = "F0123456784"},
+                {RecordData NAME = "Suma", AGE = 23, MONEY = 3425, NO = "F0123456785"},
+                {RecordData NAME = "Jima", AGE = 23, MONEY = 4325, NO = "F0123456786"}
+            }
+
+        || update
+        {do
+            {try
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "update文に少なくとも一つのパラメータがあります。"}
+            }
+        }
+
+        || update with condition
+        {do
+            {try
+                def rd:Record = {source.new-record}
+                {rd.set "NAME", "wangwx"}
+                {rd.set "AGE", 27}
+                {rd.set "MONEY", 100000}
+                {rd.set "NO", "1111"}
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON", condition = {Condition.from-Record rd}}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "update文に少なくとも一つのパラメータがあります。"}
+            }
+        }
+
+        || update one record with condition
+        {do
+            def rd:Record = {source.new-record}
+            {rd.set "NAME", "wangwx"}
+            {rd.set "AGE", 27}
+            {rd.set "MONEY", 100000}
+            {rd.set "NO", "1111"}
+            def rd1:Record = {source.new-record}
+            {rd1.set "NAME","wangwx1"}
+            {rd1.set "AGE",21}
+            {rd1.set "MONEY",100001}
+            {rd1.set "NO","1112"}
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON", condition = {Condition.from-Record rd, pending? = true},rd1}
+            {TestCondition.assert sql == "UPDATE PERSON SET NAME = ? , AGE = ? , MONEY = ? , NO = ?  WHERE NAME = ? AND AGE = ? AND MONEY = ? AND NO = ?"}
+            {TestCondition.assert bind-vars[0] == "wangwx1"}
+            {TestCondition.assert bind-vars[1] == 21}
+            {TestCondition.assert bind-vars[2] == 100001}
+            {TestCondition.assert bind-vars[3] == "1112"}
+            {TestCondition.assert bind-vars[4] == "wangwx"}
+            {TestCondition.assert bind-vars[5] == 27}
+            {TestCondition.assert bind-vars[6] == 100000}
+            {TestCondition.assert bind-vars[7] == "1111"}
+        }
+        || update a lot of records with condition
+        {do
+            {try
+                def rd:Record = {source.new-record}
+                {rd.set "NAME","wangwx"}
+                {rd.set "AGE",27}
+                {rd.set "MONEY",100000}
+                {rd.set "NO","1111"}
+                def rd1:Record = {source.new-record}
+                {rd1.set "NAME","wangwx1"}
+                {rd1.set "AGE",21}
+                {rd1.set "MONEY",100001}
+                {rd1.set "NO","1112"}
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON", condition = {Condition "NAME = ?","wangwx@"}, rd,rd1}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "update文に複数のRecordパラメータが存在することができません。"}
+            }
+        }
+
+        || one argument
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON",condition = {Condition "NAME = ?","wangwx@"}, NAME = "wangwx"}
+            {TestCondition.assert sql == "UPDATE PERSON SET NAME = ?  WHERE NAME = ?"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == "wangwx@"}
+        }
+
+        || a lot of arguments
+        {do
+            def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON",condition ={Condition "NAME = ?","wangwx@"}, NAME = "wangwx",AGE = 27}
+            {TestCondition.assert sql == "UPDATE PERSON SET NAME = ? , AGE = ?  WHERE NAME = ?"}
+            {TestCondition.assert bind-vars[0] == "wangwx"}
+            {TestCondition.assert bind-vars[1] == 27}
+            {TestCondition.assert bind-vars[2] == "wangwx@"}    
+        }
+
+        || a lot of arugments and records
+        {do
+            {try
+                def rd:Record = {source.new-record}
+                {rd.set "NAME", "wangwx"}
+                {rd.set "AGE", 27}
+                {rd.set "MONEY", 100000}
+                {rd.set "NO", "1111"}
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON",condition ={Condition "NAME = ?","wangwx@"}, NAME ="wangwx",rd,AGE = 27,MONEY =100000,NO = "1111"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "パラメータにkey値が必要です。"}
+            }
+        }
+
+        || other arguments
+        {do
+            {try
+                def (sql:String, bind-vars:#FastArray) = {SQLUtil.update "PERSON", "wangwx"}
+             catch e:Exception do
+                ||{popup-message e.message}
+                {TestCondition.assert e.message == "パラメータにkey値が必要です。"}
+            }
+        }
+    }
+}
+

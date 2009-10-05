@@ -1,0 +1,990 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors D.TIAN
+|||
+
+{import * from CURL.GUI.DIALOGS} || for popup-message used by StreamCsvRecordSet
+{import * from CURL.GUI.CONTROLS} || for ScrollBox used by StreamCsvRecordSet
+{import * from CURL.GUI.BASE} || for VBox used by StreamCsvRecordSet
+{import * from CURL.GUI.TEXT-FORMATS} || for pre used by StreamCsvRecordSet
+
+{doc-next
+    {purpose
+        標準のCsvRecordSetのデータソースはURLしか指定できない為、StreamCsvRecordSetを作成した。
+        このStreamCsvRecordSetはTextInputStreamからｃｓｖデータを読み込み、RecordSetを生成します。
+    }
+    {details
+        {docref CsvRecordSet}を継承しますが、次の点が違います。
+        １．　最初にRecordSetに読み込まれるデータがStreamからですが、保存先はStreamの生成元ではなく、
+              別途設定されるURLです。
+        ２．　{docref StreamCsvRecordSet.url}の更新がない場合、初期値
+             （curl://user-data/local-data-for/temp.csv）にデータが一時的に保存される。
+        ３． 保存する必要がない場合、{docref StreamCsvRecordSet.save-csv} メソッドを呼び出してください。
+    }
+    {notes
+        ファイルに保存したい場合に、commitして保存されますが、保存されるフォーマットはデフォールトで元の
+        csvデータフォーマットのままになります。
+        ヘッダ部の変更が必要な場合、保存（commit)する前に、StreamCsvRecordSet.headerを設定しなおして
+        ください。機密データを扱う場合に、特に注意してください。
+}
+
+{for-example 
+    次の例はCSVフォーマットの文字列からRecordSetに読み込むサンプルです。
+
+    {example
+        このサンプルは、特権が必要ですが、ドキュメントは非特権アプレットな為、下記のコードをコメント
+        アウトしています。
+        下記のサンプルを実行するために、コメントを外し、アプレットとしてローカルディレクトリに保存
+        してから、そのアプレットを実行してください。
+        （本パッケージを参照できるよう、適切なmanifestファイルを作る必要があります）
+||--        {let s:String =
+||--                "TestDate,FirstName,LastName,Age,AverageScore,IsMember\n"
+||--                & "Date,String,String,int,double,bool\n"
+||--                & "登録日,姓,名,年齢,平均点数,メンバー?\n"
+||--                & "01/01/2006,John,Smith,22,123.456,true\n"
+||--                & "04/05/2007,Ben,Smith,22,123.456,true\n"
+||--                & "11/09/2007,John,Smith,22,123.456,true\n"
+||--                & "02/13/2006,John,Smith,22,123.456,true\n"
+||--                & "07/01/2008,John,Smith,22,123.456,true\n"
+||--                & "08/21/2006,John,Smith,22,123.456,true"}
+||--            
+||--        {let rs:StreamCsvRecordSet = {StreamCsvRecordSet {s.to-InputStream}, _header-line-count = 3, character-encoding="utf8"}}
+||--            {VBox width=20cm,
+||--                {RecordGrid width=20cm, record-source = rs},
+||--                {BindCommandButton
+||--                    label="一レコード追加し、全データを指定したファイルに保存",
+||--                    {on Action do
+||--                        {rs.append
+||--                            {RecordData
+||--                                TestDate="07/01/2008",FirstName="AAA",LastName="BBB",Age="22",AverageScore="123.456",IsMember="true"
+||--                            }
+||--                        }
+||--                        || 別のCSVファイルから新しいデータを一括でRecordSetに追加する場合、次のメソッドで便利です。
+||--                        || {rs.import {CsvDataReader |#妥当なパラメータを渡してください#|}}
+||--                        {rs.save-csv _url = {choose-file style=FileDialogStyle.save-as}}
+||--                    }
+||--                }
+||--            }
+    }
+}
+}
+{define-class public StreamCsvRecordSet {inherits CsvRecordSet}
+
+  || stream for reading csv data from.
+  field private _tis:TextInputStream
+  
+  || 新規追加レコード
+  field public _added-records:{Array-of Record} = {{Array-of Record}}
+  || 更新があったレコード
+  field public _modified-records:{Array-of Record} = {{Array-of Record}}
+  || 削除されたレコード
+  field public _deleted-records:{Array-of Record} = {{Array-of Record}}
+  
+  || local file URL for saving data to. Note this file does not exist in user's directory.
+  || Note: before you save csv data to this URL, remember to update this field.
+  field private _url-root:Url = {url "curl://user-data/local-data-for/"}
+  field private _url:Url = {url "curl://user-data/local-data-for/temp.csv"}
+  field private _output-char-encoding:CharEncoding = "shift-jis"
+  field public _id:#String = null
+  
+  || data type mapping between header in csv data and Domain used in RecordField.
+  let type-table:{HashTable-of String, Domain} =
+      {{HashTable-of String, Domain}
+        "DateTime", {PStandardDateTimeDomain},
+        "Date", {PStandardDateDomain},               
+        "Time", {PStandardTimeDomain},             
+        "String", {PStandardStringDomain},
+        "int", {PStandardIntDomain},           
+        "double", {PStandardDoubleDomain},          
+        "int64", {PStandardInt64Domain},              
+        "bool", {PStandardBoolDomain},                
+        "any", {PStandardAnyDomain},                 
+        "float",{PStandardFloatDomain},                
+        "char",{PStandardCharDomain},  
+        "ByteArray", {PStandardByteArrayDomain}
+      }
+
+  {doc-next
+    {purpose
+        StreamCsvRecordSetを作成するファクトリです。TextInputStreamではなく、Stringで入力パラメータ
+        として受け取るようにした。
+    }
+    {parameter _tis,
+        {docref RecordSet}の初期データソースになる{docref String}
+    }
+    {parameter _fields,
+        RecordSetのフィールド定義になるRecordFields. nullの場合、データソース(_tis)のデータにあるヘッダ
+        を使って自動生成される。
+
+        デフォルト値はnull。
+    }
+    {parameter _header-line-count,
+        ヘッダーデータとして扱うデータの行数を指定します。{docref RecordFields}の入力になります、
+        最大3行の対応がされてます。
+        一行目：フィールド名
+        二行目：フィールドタイプ（Domainの指定）
+        三行目：フィールドキャプション
+        三行以上のヘッダー行数が指定された場合、ヘッダーデータとしてself.headerに保存されますが、
+        4行以降のヘッダーデータがRecordSetに反映しません。
+        但し、ｃｓｖデータをファイルに保存する場合に、ヘッダー行としてself.headerの内容が指定された
+        ファイルに保存されます。
+        
+        デフォルト値は3。
+    }
+    {parameter _character-encoding,
+        CSVﾃﾞｰﾀを読み込む時に使用する文字コード。
+        デフォルトはutf8
+    }
+    {parameter _output-character-encoding,
+        CSVﾃﾞｰﾀをファイルに出力（保存）する時に使用する文字コード。
+        デフォルトはshift-jis
+    }
+    {parameter ...,
+        親クラスのCsvRecordSetのcreateコンストラクタに渡すパラメータ。
+    }
+  }
+  
+  {factory public {default
+                      _tis:String,
+                      _fields:#RecordFields = null,
+                      _header-line-count:int = 3,
+                      _character-encoding:CharEncoding = "utf8",
+                      _output-character-encoding:CharEncoding = "shift-jis",
+                      _id:#String = null,
+                      ...}:StreamCsvRecordSet
+    {return
+        {StreamCsvRecordSet.from-stream
+            {_tis.to-InputStream},
+            _fields = _fields,
+            _header-line-count = _header-line-count,
+            _character-encoding = _character-encoding,
+            _id = _id,
+            {splice ...}
+        }
+    }
+  }
+  
+  {doc-next
+    {purpose
+        StreamCsvRecordSetを作成します。
+    }
+    {parameter _tis,
+        RecordSetの初期データソースになるTextInputStream
+    }
+    {parameter _fields,
+        RecordSetのフィールド定義になるRecordFields. nullの場合、データソース(_tis)のデータにあるヘッダ
+        を使って自動生成される。
+        デフォルト値はnull。
+    }
+    {parameter _header-line-count,
+        ヘッダーデータとして扱うデータの行数を指定します。{docref RecordFields}の入力になります、最大3行
+        の対応がされてます。
+        一行目：フィールド名
+        二行目：フィールドタイプ（Domainの指定）
+        三行目：フィールドキャプション
+        三行以上のヘッダー行数が指定された場合、ヘッダーデータとしてself.headerに保存されますが、4行以降
+        のヘッダーデータがRecordSetに影響しません。
+        但し、ｃｓｖデータをファイルに保存する場合に、ヘッダー行としてself.headerの内容が指定された
+        ファイルに保存されます。
+        
+        デフォルト値は3。
+    }
+    {parameter ...,
+        親クラスのCsvRecordSetのcreateコンストラクタに渡すパラメータ。
+    }
+  }
+  {constructor public {from-stream
+                          _tis:TextInputStream,
+                          _fields:#RecordFields = null,
+                          _header-line-count:int = 3,
+                          _character-encoding:CharEncoding = "utf8",
+                          _output-character-encoding:CharEncoding = "shift-jis",
+                          _id:#String = null,
+                          ...}
+
+    set self._tis = _tis
+    set self._id = _id
+    {set self._output-char-encoding = _output-character-encoding}
+    || curl://user-data/local-data-for が存在しない場合がある為、
+    || デフォルト値のself._urlが存在するかチェック。存在しない場合、フォルダを作成する。
+    {try
+        {write-to self._url, ""}
+     catch e:MissingFileException do
+        {create-Directory
+            self._url-root,
+            create-missing-parents? = true,
+            error-if-exists? = false
+        }
+    }    
+||--    set self._reader = {CsvDataReader.from-stream self._tis, header-line-count = _header-line-count}
+    def reader =  {CsvDataReader.from-stream self._tis, header-line-count = _header-line-count}
+    {if-non-null _fields then
+        || 親クラスのcreateコンストラクターを呼び出す。
+        {construct-super.CsvRecordSet.create
+            self._url,
+            _fields,
+            character-encoding = _character-encoding,
+            {splice ...}
+        }
+     else
+        || ヘッダー情報を取得する
+        let field-names:StringArray = {reader.header[0].split split-chars= {CharClass ','}}
+        let field-types:StringArray = {reader.header[1].split split-chars= {CharClass ','}}
+        let captions:#StringArray =
+            {if reader.header.size > 2 then
+                {reader.header[2].split split-chars= {CharClass ','}}
+             else
+                null
+            }
+        
+        || ヘッダー情報を使って、RecordFieldを作成
+        let field-arr:{Array-of RecordField} = {{Array-of RecordField}}
+        {for data:String key k:int in field-names do
+            {field-arr.append
+                {RecordField
+                    data,
+                    domain = {StreamCsvRecordSet.type-table.get field-types[k]},
+                    caption = {if-non-null captions then captions[k] else field-names[k]}
+                }
+            }
+        }
+        || 親クラスのcreateコンストラクターを呼び出す。
+        {construct-super.CsvRecordSet.create
+            self._url,
+            {RecordFields {splice field-arr}},
+            character-encoding = _character-encoding,
+            {splice ...}
+        }
+    }
+    set self.header = reader.header
+    {self.import reader}
+  }
+||--  {constructor public {default _tis:TextInputStream, _fields:#RecordFields, _header-line-count:int = 3, _character-encoding:CharEncoding = "utf8", ...}
+||--
+||--    set self._tis = _tis
+||--||--    set self._reader = {CsvDataReader.from-stream self._tis, header-line-count = _header-line-count}
+||--    def reader =  {CsvDataReader.from-stream self._tis, header-line-count = _header-line-count}
+||--
+||--    || ヘッダー情報を取得する
+||--    let field-names:StringArray = {reader.header[0].split split-chars= {CharClass ','}}
+||--    let field-types:StringArray = {reader.header[1].split split-chars= {CharClass ','}}
+||--    let captions:#StringArray =
+||--        {if reader.header.size > 2 then
+||--            {reader.header[2].split split-chars= {CharClass ','}}
+||--         else
+||--            null
+||--        }
+||--    
+||--    || ヘッダー情報を使って、RecordFieldを作成
+||--    let field-arr:{Array-of RecordField} = {{Array-of RecordField}}
+||--    {for data:String key k:int in field-names do
+||--        {field-arr.append
+||--            {RecordField
+||--                data,
+||--                domain = {StreamCsvRecordSet.type-table.get field-types[k]},
+||--                caption = {if-non-null captions then captions[k] else field-names[k]}
+||--            }
+||--        }
+||--    }
+||--    || 親クラスのcreateコンストラクターを呼び出す。
+||--    {construct-super.CsvRecordSet.create
+||--        self._url,
+||--        {RecordFields {splice field-arr}},
+||--        character-encoding = _character-encoding,
+||--        {splice ...}
+||--    }
+||--    set self.header = reader.header
+||--    {self.import reader}
+||--  }
+
+  {doc-next
+    {purpose
+        {docref StreamCsvRecordSet}からCSVデータを任意のURLに出力できるように、親クラスの
+        {docref CsvRecordSet.twd}を設定しなおします。
+    }
+  }
+  {method protected {update-writer _output-char-encoding:CharEncoding}:void
+
+    set self.tdw = 
+        {CsvDataWriter
+            self._url,
+            character-encoding = _output-char-encoding
+        }    
+  }
+
+  {doc-next
+    {purpose
+        {docref StreamCsvRecordSet}のデータを指定されたURL（ローカルファイル）に保存される。
+    }
+    {parameter _url,
+        CSVデータ保存先を指定する、規定値はnull
+    }
+    {parameter _header,
+        CSVフォーマットで{docref StreamCsvRecordSet}のデータを保存する時に、ヘッダー部分を指定する。
+        既定値は{docref StreamCsvRecordSet}が作成された時に、
+        _header-line-count >= 1の場合生成した{docref StreamCsvRecordSet.header}値で次の式で作成される：
+        {pre
+        {ctext
+            {if-non-null self.header then
+                {if self.header.size > 2 then
+                    {StringArray self.header[2]}
+                 elseif self.header.size == 1 then
+                    {StringArray self.header[0]}
+                 else
+                    null
+                }
+             else
+                {StringArray}
+            }
+        }
+        }
+
+        想定されるデータフォーマットはヘッダー部に次の構成の場合に対応した：
+        1行のみある場合、フィールド名が想定される。CSVファイルに出力する場合、そのまま書き出される。
+        3行以上ある場合、第３行目のデータをキャプションと想定して、CSVファイルに出力する。
+        それ以外の場合、nullになりますが、{docref StreamCsvRecordSet.header}の中のデータをそのまま
+        CSVファイルに出力することを意味する。
+        なお、{docref StreamCsvRecordSet.header}自身がnullの場合、ヘッダーがCSVファイルに出力されません。
+
+        明示的にヘッダー部を指定したい場合、このパラメータで指定してください。
+    }
+    {notes
+        _urlを必ず指定してください。指定しない場合、{ctext curl://user-data/local-data-for/temp.txt}に
+        保存されます。
+
+        _headerの指定値はnullの場合、{docref StreamCsvRecordSet.header}の中のデータをそのままCSVファイル
+        に出力されるが、
+        {docref StreamCsvRecordSet.header}自体にデータがない場合、或いはnullの場合、CSVファイルに
+        出力しません。
+        なお、指定された_headerは空の{docref StringArray}の場合、CSVファイルにヘッダーが出力されません。
+    }
+  }
+  {method public {save-csv
+                     _url:#Url = null,
+                     _header:#StringArray =
+                         {if-non-null self.header then
+                             {if self.header.size > 2 then
+                                 {StringArray self.header[2]}
+                              elseif self.header.size == 1 then
+                                 {StringArray self.header[0]}
+                              else
+                                 null
+                             }
+                          else
+                             {StringArray}
+                         },
+                     _output-char-encoding:CharEncoding = "utf8",
+                     use-quote?:bool = true
+                 }:void
+    set self._output-char-encoding = _output-char-encoding
+    || _urlがnullの場合、既存のself.urlに利用してデータを出力する。
+    || 初期値の場合、curl://user-data/local-data-for/temp.txt　になります。
+    {if-non-null _url then
+        set self.url = _url
+        {self.update-writer self._output-char-encoding}
+    }
+
+    || ADD BY D.TIAN 2008/09/22
+    || 出力フォーマットの""ダブルクォーテーション対応
+    {if use-quote? then
+        let name-list:StringArray = {StringArray}
+        let csv-str:StringBuf = {StringBuf ""}
+        {for rf:RecordField in self.fields do
+            {csv-str.concat "\"" & {self.escape-chars rf.caption} & "\""}
+            {csv-str.concat ","}
+            {name-list.append rf.name}
+        }
+        {csv-str.trim-right trim-chars = {CharClass ","}}
+        
+        {csv-str.concat NL}
+        
+        {for r:Record in self do
+            {for name:String key k:int in name-list do
+                {csv-str.concat "\"" & {self.escape-chars {String {r.get name}}} & "\"" }
+                {if k < name-list.size - 1 then
+                    {csv-str.concat ","}
+                }
+            }
+            {csv-str.concat NL}
+        }
+        
+        || 登録成功した場合、コミットしないと、org-lineが更新されないため、コミットの必要がある。
+        {super.commit}
+        {try
+            || UPDATE BEGIN BY D.TIAN 2008/10/08
+||--            {write-to self.url, csv-str, character-encoding = _output-char-encoding}
+            {write-to
+                self.url,
+                {csv-str.replace-clone "<null>", ""},
+                character-encoding = _output-char-encoding
+            }
+            || UPDATE END BY D.TIAN 2008/10/08
+         catch e:Exception do
+            {throw e}
+        }
+     else
+        let old-header:#StringArray = self.header
+        {if-non-null _header then
+            set self.header = _header
+        }
+        || self.urlファイルに出力する。
+        {super.commit}
+        || オリジナルヘッダに戻す。
+        set self.header = old-header
+    }
+  }
+    
+  {method private {escape-chars input:String}:String
+    {return
+        {input.replace-clone "\"", "\"\""}
+    }
+  }
+    
+  {method protected open {make-writer}:TextDataWriter
+    {return
+        {CsvDataWriter
+            self.url,
+            character-encoding = self._output-char-encoding,
+            header = self.header
+        }
+    }
+  }
+  
+  {method public {on-record-set-event ev:RecordSetEvent}:void
+    {type-switch ev
+     case ra:RecordAdded do
+        {self._added-records.append
+            ra.record
+        }
+     case rm:RecordModified do
+        
+        || 既に追加された場合、無視。
+        {for r:Record in self._modified-records do
+            {if rm.record == r then
+                {return}
+            }
+        }
+        {self._modified-records.append
+            rm.record
+        }
+     case rr:RecordRemoved do
+        || 削除されたレコードがオリジナルRecordSetと比べ、追加されたレコードの場合
+        || self._added-records から削除する。
+        {for r:Record key i:int in self._added-records do
+            {if rr.record == r then
+                {self._added-records.remove
+                    i
+                }
+                {break}
+            }
+        }
+        
+        || 削除されたレコードがオリジナルRecordSetと比べ、更新されたレコードの場合
+        || self._modified-records から削除する。
+        {for r:Record key i:int in self._modified-records do
+            {if rr.record == r then
+                {self._modified-records.remove
+                    i
+                }
+                {break}
+            }
+        }
+        
+        {self._deleted-records.append
+            rr.record
+        }
+    }
+    {super.on-record-set-event ev}
+  }
+  
+  {doc-next
+    {purpose
+        StreamCsvRecordSetの_added-records, _deleted-records, _modified-records を全部クリアします。
+        なお、親クラスの機能を継承：変更されたすべての Record を復帰させます。
+    }
+  }
+  {method public {revert}:void
+    {super.revert}
+    {self._added-records.clear}
+    {self._deleted-records.clear}
+    {self._modified-records.clear}
+  }
+
+  {doc-next
+    {purpose
+        更新があったレコードをCSVデータ形式に出力する。
+        出力フォーマット(改行コードは\r\n)：
+        "origin", "data", "the", "first", "line"
+        "changed", "data", "the", "second", "line"
+    }
+  }
+  {method public {get-modified-records}:#String
+    || 返却値
+    let rslt:#String = null
+    || 変更前データ
+    let org-line-rslt:String = ""
+    || 変更後データ
+    let line-rslt:String = ""
+    {if self._modified-records.size == 0 then
+        {return null}
+     else
+        || UPDATE BY D.TIAN 2008/08/18
+        || 更新レコードが一個しか作成できないバグを修正
+        set rslt = ""
+            
+        || 新規追加したレコードの場合、変更したレコードとして処理しない。
+        || get-added-recordsで処理する為。
+        {for tag=outer-loop, r:Record in self._modified-records do
+            {for added-r:Record in self._added-records do
+                {if added-r == r then
+                    {continue tag = outer-loop}
+                }
+            }
+            
+            || UPDATE BY D.TIAN 2008/08/18
+            || 更新レコードが一個しか作成できないバグを修正
+||--            set rslt = ""
+            set org-line-rslt = ""
+            set line-rslt = ""
+            || fieldsの順番で、CSVデータに出力
+            {for i:int = 0 below self.fields.size do
+                let curr-field:RecordField = {self.fields.get-by-index i}
+                {if i != self.fields.size - 1 then
+                    set org-line-rslt = org-line-rslt & "\""
+                    & {self.format-output-data
+                          {r.get curr-field.name, pending? = false}, curr-field
+                      } & "\","
+                    set line-rslt = line-rslt & "\""
+                    & {self.format-output-data
+                          {r.get curr-field.name, pending? = true}, curr-field
+                      } & "\","
+                 else
+                    set org-line-rslt = org-line-rslt & "\""
+                    & {self.format-output-data
+                          {r.get curr-field.name, pending? = true}, curr-field
+                      } & "\"" & NL
+                    set line-rslt = line-rslt & "\""
+                    & {self.format-output-data
+                          {r.get curr-field.name, pending? = true}, curr-field
+                      } & "\"" & NL
+                }
+            }
+            set rslt = rslt & org-line-rslt & line-rslt
+        }
+        {if rslt != null then
+            || UPDATE BY D.TIAN 2008/08/18
+            || 更新レコードが一個しか作成できないバグを修正
+            {if rslt.size == 0 then
+                {return null}
+            }
+            || 最後のNLを削除
+            set rslt = {{non-null rslt}.substr
+                           0,
+                           {rslt.find-string NL, search-direction = SearchDirection.backward}
+                       }
+        }
+    }
+
+    {return rslt}
+  }
+
+  {doc-next
+    {purpose
+        新規追加したレコードをCSVデータ形式に出力する。
+        出力フォーマット（改行コードは\r\n）：
+        "", "", "", "", ""
+        "changed", "data", "the", "second", "line"
+    }
+  }
+  {method public {get-added-records}:#String
+    let rslt:#String = null
+    || 変更前データ
+    let org-line-rslt:String = ""
+    || 変更後データ
+    let line-rslt:String = ""
+    {if self._added-records.size == 0 then
+        {return null}
+     else
+||--        set rslt = ""
+        {for tag = outer-loop, r:Record in self._added-records do
+            set org-line-rslt = ""
+            set line-rslt = ""
+            let is-modified?:bool = false
+            {for updated-r:Record in self._modified-records do
+                {if updated-r == r then
+                    set is-modified? = true
+                }
+            }
+            
+            {if not is-modified? then
+                {continue tag = outer-loop}
+            }
+            || fieldsの順番で、CSVデータに出力
+            {for i:int = 0 below self.fields.size do
+                let curr-field:RecordField = {self.fields.get-by-index i}
+                {if i != self.fields.size - 1 then
+||--                    || 主キーかを判断
+||--                    || 主キーが空の場合、新規登録レコードとして処理しない。
+                    {if curr-field.index-type == RecordFieldIndexType.unique then
+                        let r-data:any = {r.get curr-field.name, pending? = true} 
+                        {if r-data == null or (r-data & "").size == 0 or (r-data & "") == "0" then
+                            set org-line-rslt = ""
+                            set line-rslt = ""
+                            {continue tag = outer-loop}
+                        }
+                    }
+                
+                    set org-line-rslt = org-line-rslt & "\"" & "\","
+                    set line-rslt = line-rslt & "\""
+                    & {self.format-output-data
+                          {r.get curr-field.name, pending? = true}, curr-field
+                      } & "\","
+                 else
+                    || 主キーかを判断
+                    {if curr-field.index-type == RecordFieldIndexType.unique then
+                        || 主キーがない場合
+                        let r-data:any = {r.get curr-field.name, pending? = true}
+                        || 主キーが空の場合、新規登録レコードとして処理しない。
+                        {if r-data == null or (r-data & "").size == 0 or (r-data & "") == "0" then
+                            set org-line-rslt = ""
+                            set line-rslt = ""
+                            {continue tag = outer-loop}
+                        }
+                    }
+                    set org-line-rslt = org-line-rslt & "\"" & "\"" & NL
+                    set line-rslt = line-rslt & "\""
+                    & {self.format-output-data
+                          {r.get curr-field.name, pending? = true}, curr-field
+                      } & "\"" & NL
+                }
+            }
+            {if-non-null s = rslt then
+                set rslt = s & org-line-rslt & line-rslt
+             else
+                set rslt = org-line-rslt & line-rslt
+            }
+        }
+        {if rslt != null then
+            || 最後のNLを削除
+            set rslt = {{non-null rslt}.substr
+                           0,
+                           {rslt.find-string NL, search-direction = SearchDirection.backward}
+                       }
+        }
+        {return rslt}
+    }
+  }
+
+  {method public {format-output-data _data:any, _field:RecordField}:any
+    let rslt:String = ""
+    {type-switch _field.domain
+     case sdd:PStandardDateDomain do
+        || DB側のDate型対応
+        || YYYY-MM-DD HH:mm:ss
+        set rslt = (_data asa DateTime).info.iso-date & (_data asa DateTime).info.iso-time
+     case sdtd:PStandardDateTimeDomain do
+        || DB側のTIMESTAMP型対応
+        || YYYY-MM-DD HH:mm:ss.FFF
+        set rslt = {String  (_data asa DateTime)}
+        set rslt = {rslt.substr 0, rslt.size - 3}
+     case dbl:PStandardDoubleDomain do
+        || DB側のBinaryFloat、BinaryDouble、Number(m,n)型に対応
+        || 上記のNumberの場合、nのみ対応になる。
+        || TODO：mもCurl側で制限するなら、別途検討要。
+        set rslt =  {format "%."& dbl._precision &  "f", _data asa double}
+     else
+        {return _data}
+    }
+    {return rslt}
+  }
+  
+  {doc-next
+    {purpose
+        このレコードセットで新規追加されたデータ、及び既存レコードが更新されたデータがある場合、
+        これらのデータをCSV形式で作成する。
+    }
+    {details
+        CSVデータを作成する時に、次のフォーマットで作成される：
+        新規追加の場合：　（旧データ\r\n新データ）
+        {pre
+                    "", "", "", "",""
+                    "A", "B", "C", "D", "E"
+        }
+        更新の場合：（旧データ\r\n新データ）
+        {pre
+                "A","B","C","D","E"
+                "A","B","H","M","E"
+        }
+        {notes
+            レコードが削除され場合に、未対応。
+        }
+    }
+  }
+  {method public {changed-records-to-csv}:#String
+    
+    let modified-data:#String = {self.get-modified-records}
+    let added-data:#String = {self.get-added-records}
+    let rslt:#String = null
+
+    set rslt = added-data
+
+    {if-non-null modified-data then
+        {if rslt == null then
+            set rslt = ""
+         else
+            set rslt = rslt & NL
+        }
+        set rslt = rslt & modified-data
+    }
+
+    || 更新データがある場合、ヘッダー情報を追加
+    {if-non-null r = rslt then
+        set rslt =
+            "\"" & self._id & "\"" & NL & {get-csv-field-names self.fields} & NL & rslt
+    }
+    
+    {if-debuggable 
+        {popup-message
+            title="changed records (including added records)",
+            {ScrollBox
+                width=10cm, height=8cm,
+                {VBox
+                    {pre {value
+                             rslt
+                         }
+                    }
+                }
+            }
+        }
+    }
+    {return rslt}
+  }
+
+  {doc-next
+    {purpose 追加・変更されたレコードの情報をクリアし、ファイルに保存するフラグsave-to-csv?=true の場合、
+        {docref CsvRecordSet} のデータをそのままローカルのcsvファイルに出力する。
+    }
+    {parameter save-to-csv?,
+        {docref bool}, ファイルに保存する場合、trueを指定してください。
+        {docref StreamCsvRecordSet.changed-records-to-csv}で利用する
+        追加・変更されたレコードのみをクリアしたい場合（ファイルに保存せず）、falseに
+        設定してください（デフォルトはfalse）。
+    }
+    {parameter _url,
+        {docref StreamCsvRecordSet.save-csv}を参照。
+    }
+    {parameter _header,
+        {docref StreamCsvRecordSet.save-csv}を参照。
+    }
+    {details　追加・変更されたレコードをcsv形式にコンバートする際に、changed-records-to-csvメソッドを
+        使って、編集・追加動作で起きたイベントで退避したレコードデータをcsvに出力している、これらの
+        データをクリアする為に、本メソッドを利用する。
+    }
+    {notes
+        {ctext save-to-csv?=false} の場合、本メソッドは内部の追加・編集されたレコードデータを
+        保持する変数をクリアするだけで、既存APIsave-csvを利用している為、
+        一旦StreamCsvRecordSet._urlに保存し、そのファイルをクリアすると言う”余計”な処理が走らせる。
+
+        save-to-csv?=true の場合、上記のファイルクリア処理がありません、つまりRecordSetのデータが
+        StreamCsvRecordSet._urlに保存される。
+    }
+  }
+  {method public {finish-submit
+                     _save-to-csv?:bool = false,
+                     _url:#Url = null,
+                     _header:#StringArray =
+                         {if-non-null self.header then
+                             {if self.header.size > 2 then
+                                 {StringArray self.header[2]}
+                              elseif self.header.size == 1 then
+                                 {StringArray self.header[0]}
+                              else
+                                 null
+                             }
+                          else
+                             {StringArray}
+                         }
+                 }:void|| {finish-submit
+
+    {self.save-csv _url = _url, _header = _header}
+    {if not _save-to-csv? then
+        {delete self._url, error-if-missing?=false}
+    }
+    || commit処理はRecordSetEventが発生し、on-record-set-eventが走る為、
+    || save-csvより後に次の処理を行う必要がある。
+    {self._added-records.clear}
+    {self._modified-records.clear}
+    {self._deleted-records.clear}
+  }
+}
+
+
+||-- ||サンプル：
+||--{if-debuggable
+||--    {value
+||--        {let s:String =
+||--            "TestDate,FirstName,LastName,Age,AverageScore,IsMember\n"
+||--            & "Date,String,String,int,double,bool\n"
+||--            & "登録日,姓,名,年齢,平均点数,メンバー?\n"
+||--            & "01/01/2006,John,Smith,22,123.456,true\n"
+||--            & "04/05/2007,Ben,Smith,22,123.456,true\n"
+||--            & "11/09/2007,John,Smith,22,123.456,true\n"
+||--            & "02/13/2006,John,Smith,22,123.456,true\n"
+||--            & "07/01/2008,John,Smith,22,123.456,true\n"
+||--            & "08/21/2006,John,Smith,22,123.456,true"}
+||--        
+||--        let rs:StreamCsvRecordSet = {StreamCsvRecordSet {s.to-InputStream}, _header-line-count = 3, character-encoding="utf8"}
+||--        {VBox width=20cm,
+||--            {RecordGrid width=20cm, record-source = rs},
+||--            {BindCommandButton
+||--                label="一レコード追加し、全データを指定したファイルに保存",
+||--                {on Action do
+||--                    {rs.append
+||--                        {RecordData
+||--                            TestDate="07/01/2008",FirstName="AAA",LastName="BBB",Age="22",AverageScore="123.456",IsMember="true"
+||--                        }
+||--                    }
+||--                    {rs.save-csv _url = {choose-file style=FileDialogStyle.save-as}}
+||--                }
+||--            }
+||--        }
+||--    }
+||--}
+{doc-next
+    {purpose
+        複数のCSVデータから、複数のStreamCsvRecordSetを作成する。
+    }
+    {parameter _data,
+        {docref String}, 入力データとしてのCSVデータ。
+    }
+    {parameter _sep-string,
+        {docref String}, デフォルトは"r\n\r\n" （本フレームワークで定義したNL+NL）。
+    }
+    {parameter _fields-tbl,
+        {docref {HashTable-of String, #RecordFields}}, CSVデータ部に複数のCSVデータ（
+        フィールド定義が異なる）で構成された場合、それぞれのフィールド定義を_fields-tblに渡す必要が
+        ある。渡された_fields-tblのキー値はCSVデータの各部分の頭一行目の文字列（業務ID）と
+        一致する必要がある。一致しない場合、或いは何も渡さない場合、出力されたRecordSetのフィールド
+        定義情報はCSVデータの各部分の2から4行目のデータを利用して作成される。
+    }
+}
+{define-proc public {split-csv-to-rs
+                        _data:String,
+                        _sep-string:String = NL & NL,
+                        _fields-tbl:#{HashTable-of String, #RecordFields} = null
+                    }:{HashTable-of String, StreamCsvRecordSet}
+    
+    || 空データを無視し、CSVデータを分割。
+    def sa:StringArray = 
+        {split-string
+            _data,
+            _sep-string = _sep-string
+        }
+    || 戻り値を初期化
+    def result-ht:{HashTable-of String, StreamCsvRecordSet} =
+        {{HashTable-of String, StreamCsvRecordSet}}
+
+    || 入力データから、CSV定義毎にRecordSetにコンバートする。
+    {for s:String in sa do
+        
+        def id-end-index= {s.find-string NL}
+        
+        let fields:#RecordFields = null
+        let find?:bool =  false
+        || 一行目取得（業務ID）
+        def csv-id:String = {s.substr 0, id-end-index}
+        || fields-tblが設定された場合、RecordFieldsの定義としてStreamCsvRecordSetに渡す。
+        {if-non-null _fields-tbl then
+            set (fields, find?) = {_fields-tbl.get-if-exists csv-id}
+            {if not find? then
+                set fields = null
+            }
+        }
+        
+        {result-ht.set
+             csv-id,
+            {StreamCsvRecordSet 
+                || 二行目以降取得（CSVデータ）
+                {s.tail id-end-index + NL.size},
+                _fields = fields,
+                _id = csv-id
+            }
+        }
+    } || FOR END.
+    
+    {return result-ht}
+}
+
+{doc-next
+    {purpose
+        文字列データを指定された文字列で分割する。
+    }
+    {parameter _input-string,
+        {docref String}, 入力文字列
+    }
+    {parameter sep-string,
+        分割用文字列、この文字列で入力文字列sを分割する。
+    }
+    {parameter ignore-blank-line?,
+        {docref bool}, 分割後の文字列が空の場合、無視するか。
+        デフォルト値は{code true}, 空の文字列を無視し、戻り値として返しません。
+    }
+}
+{define-proc public {split-string
+                        _input-string:String,
+                        _sep-string:String=NL & NL,
+                        _ignore-blank-line?:bool = true
+                    }:StringArray
+    
+    let start:int = 0
+    let index:int = {_input-string.find-string _sep-string, starting-index = start}
+    || Split the string at the periods.
+    let return-sa:StringArray ={StringArray}
+    {while index != -1 do
+        def data = {_input-string.substr start, index - start}
+        || 空行を無視、尚且つデータが空行の場合、結果に追加しない。
+        {if not (_ignore-blank-line? and data.size == 0) then
+            {return-sa.append data}
+        }
+||--        set start = index + 2
+        {if _ignore-blank-line?  then
+            set start = index + 2*NL.size
+         else
+            set start = index + NL.size
+        }
+        set index = {_input-string.find-string _sep-string, starting-index = start}
+    }
+
+    {return-sa.append {_input-string.substr start, _input-string.size - start}}
+    {return return-sa}
+}
+
+{define-proc public {get-csv-field-names _fields:RecordFields}:#String
+    let rslt:#String = null
+    {if _fields.size > 0 then
+        set rslt = ""
+        {for i:int = 0 below _fields.size do
+            {if i == (_fields.size - 1) then
+                set rslt = rslt & "\"" & {_fields.get-by-index i}.name & "\""
+             else
+                set rslt = rslt & "\"" & {_fields.get-by-index i}.name & "\","
+            }
+        }
+    }
+    {return rslt}
+}
+
+{def public NL = "\r\n"}

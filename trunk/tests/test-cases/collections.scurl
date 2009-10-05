@@ -1,0 +1,688 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada, Izumi Kashiwagi
+|||
+
+{curl-file-attributes character-encoding = "utf8"}
+
+{import * from CURL.GUI.BASE}
+
+{import * from COM.CURLAP.LIB.COLLECTIONS}
+{import * from CURL.GUI.STANDARD}
+
+{TestSuite "COM.CURLAP.LIB.COLLECTIONS",
+    {test-case "array",
+        def x1 = {array 1, 2, 3}
+        {TestCondition.assert x1.element-type == int}
+        {TestCondition.assert x1.size == 3}
+
+        def x2 =  {array {TextField}, {PasswordField}, {ComboBox}}
+        || element-type depends on API version
+        {TestCondition.assert
+            x2.element-type == {api-version-switch
+                                case "7.0+" do
+                                   GuiEventTarget
+                                case "6.0" do
+                                   {MultiUIValueControlFrame-of String}
+                                else
+                                   {error "unsupported version"}
+                               }
+        }
+        {TestCondition.assert x2.size == 3}
+    },
+    {test-case "hashtable",
+        def ht1 = {hashtable "str1", 1, "str2", 2, "str3", 3}
+        {TestCondition.assert ht1.key-type == String}
+        {TestCondition.assert ht1.element-type == int}
+        {TestCondition.assert ht1.size == 3}
+
+        def ht2 = {hashtable "str1", 1, 1, 2, "str3", 3}
+        {TestCondition.assert ht2.key-type == any}
+        {TestCondition.assert ht2.element-type == int}
+        {TestCondition.assert ht2.size == 3}
+
+        def ht3 = {hashtable {TextField}, 1, {PasswordField}, 2, {ComboBox}, 3}
+        || key-type depends on API version
+        {TestCondition.assert
+            ht3.key-type == {api-version-switch
+                             case "7.0+" do
+                                GuiEventTarget
+                             case "6.0" do
+                                {MultiUIValueControlFrame-of String}
+                             else
+                                {error "unsupported version"}
+                            }
+        }
+        {TestCondition.assert ht3.element-type == int}
+        {TestCondition.assert ht3.size == 3}
+    },
+    {test-case "contains?",
+        def x = {{Array-of String} "apple", "orange", "pine", "orange", "pine"}
+        {TestCondition.assert {ArrayUtil.contains? x, "apple"}}
+        {TestCondition.assert {ArrayUtil.contains? x, "pine"}}
+        {TestCondition.assert not {ArrayUtil.contains? x, "xxxxx"}}
+    },
+    {test-case "unique",
+        def x = {{Array-of String} "apple", "orange", "pine", "orange", "pine"}
+        {TestCondition.assert x.size == 5}
+        {ArrayUtil.unique x}
+        {TestCondition.assert x.size == 3}
+    },
+    {test-case "grep",
+        def x = {{Array-of String} "a01", "a02", "b01", "b02", "c01"}
+        {TestCondition.assert x.size == 5}
+        {ArrayUtil.grep x, "a.*"}
+        {ArrayUtil.output x}
+        {TestCondition.assert x.size == 2}
+    },
+    {test-case "max",
+        def x = {{Array-of int} 5, 10, 20, 15, 25}
+        {TestCondition.assert {ArrayUtil.max x} == 25}
+        def y = {{Array-of int} -5, -10, -20, -15, -25}
+        {TestCondition.assert {ArrayUtil.max y} == -5}
+        def z = {{Array-of DateTime}
+                    {DateTime year = 2010, month = 1, day = 1},
+                    {DateTime year = 2008, month = 1, day = 1},
+                    {DateTime year = 2009, month = 1, day = 1},
+                    {DateTime year = 2011, month = 1, day = 1}
+                }
+        {TestCondition.assert
+            ({ArrayUtil.max z} asa DateTime).info.year == 2011}
+    },
+    {test-case "min",
+        def x = {{Array-of int} 5, 10, 20, 15, 25}
+        {TestCondition.assert {ArrayUtil.min x} == 5}
+        def y = {{Array-of int} -5, -10, -20, -15, -25}
+        {TestCondition.assert {ArrayUtil.min y} == -25}
+        def z = {{Array-of DateTime}
+                    {DateTime year = 2010, month = 1, day = 1},
+                    {DateTime year = 2008, month = 1, day = 1},
+                    {DateTime year = 2009, month = 1, day = 1},
+                    {DateTime year = 2011, month = 1, day = 1}
+                }
+        {TestCondition.assert
+            ({ArrayUtil.min z} asa DateTime).info.year == 2008}
+    },
+    {test-case "sum",
+        def x = {{Array-of int} 1, 2, 3, 4}
+        {TestCondition.assert {ArrayUtil.sum x} == 10}
+        {TestCondition.assert {ArrayUtil.sum {{Array-of int}}} == 0}
+        {require-exception Exception do
+            {ArrayUtil.sum {{Array-of String}}}
+        }
+    },
+    {test-case "avg",
+        def x = {{Array-of int} 1, 2, 3, 4}
+        {TestCondition.assert {ArrayUtil.avg x} == 2.5}
+    },
+    {test-case "join",
+        def x = {{Array-of any} "a", "b", "c", "d", 5}
+        {TestCondition.assert {ArrayUtil.join x} == "a,b,c,d,5"}
+    },
+    {test-case "update-if-equals",
+        def x = {{Array-of String} "abcd1", "xyz", "abcd2"}
+        {ArrayUtil.update-if-equals
+            x,
+            {proc {v:any}:any
+                {return (v asa String) & "+++"}
+            },
+            equality-proc = {proc {v:any}:bool
+                                {return (v asa String) != "xyz"}
+                            }
+        }
+        {TestCondition.assert x[0] == "abcd1+++"}
+        {TestCondition.assert x[1] == "xyz"}
+        {TestCondition.assert x[2] == "abcd2+++"}
+    },
+    {test-case "remove-if-equals",
+        let x:{Array-of String} = {{Array-of String} "apple", "orange", "banana"}
+        {ArrayUtil.remove-if-equals
+            x,
+            {proc {v:any}:bool
+                {return v.size == 6}
+            }
+        }
+        {TestCondition.assert x[0] == "apple"}
+
+        set x = {{Array-of String} "apple", "orange", "banana"}
+        {ArrayUtil.remove-if-equals
+            x,
+            {proc {v:any}:bool
+                {return v.size > 10}
+            }
+        }
+        {TestCondition.assert x[0] == "apple"}
+        {TestCondition.assert x[1] == "orange"}
+        {TestCondition.assert x[2] == "banana"}
+
+        set x = {{Array-of String} "apple", "orange", "banana"}
+        {ArrayUtil.remove-if-equals
+            x,
+            {proc {v:any}:bool
+                {return v.size < 10}
+            }
+        }
+        {TestCondition.assert x.size == 0}
+    },
+    {test-case "count-elements",
+        def x = {{Array-of String} "apple", "orange", "banana"}
+        {TestCondition.assert
+            {ArrayUtil.count-elements
+                x,
+                {proc {v:any}:bool
+                    {return v.size == 6}
+                }
+            } == 2
+        }
+        {TestCondition.assert
+            {ArrayUtil.count-elements
+                x,
+                {proc {v:any}:bool
+                    {return v.size > 10}
+                }
+            } == 0
+        }
+        {TestCondition.assert
+            {ArrayUtil.count-elements
+                x,
+                {proc {v:any}:bool
+                    {return v.size < 10}
+                }
+            } == 3
+        }
+    },
+    {test-case "union",
+        def x = {{Array-of String} "apple", "orange", "banana"}
+        def y = {{Array-of String} "grape", "orange", "melon", "berry"}
+        def z = {{Array-of int} 10, 50, 20, 30}
+        {require-exception IllegalArgumentException do
+            {ArrayUtil.union x, z}
+        }
+        def new-x = {ArrayUtil.union x, y}
+        {TestCondition.assert new-x.size == 6}
+    },
+    {test-case "union-all",
+        def x = {{Array-of String} "apple", "orange", "banana"}
+        def y = {{Array-of String} "grape", "orange", "melon", "berry"}
+        def z = {{Array-of int} 10, 50, 20, 30}
+        {require-exception IllegalArgumentException do
+            {ArrayUtil.union-all x, z}
+        }
+        def new-x = {ArrayUtil.union-all x, y}
+        {TestCondition.assert new-x.size == 7}
+    },
+    {test-case "intersect",
+        def x = {{Array-of String} "apple", "orange", "banana"}
+        def y = {{Array-of String} "grape", "orange", "melon", "berry"}
+        def z = {{Array-of int} 10, 50, 20, 30}
+        {require-exception IllegalArgumentException do
+            {ArrayUtil.intersect x, z}
+        }
+        def new-x = {ArrayUtil.intersect x, y}
+        {TestCondition.assert new-x.size == 1}
+    },
+    {test-case "minus",
+        def x = {{Array-of String} "apple", "orange", "banana"}
+        def y = {{Array-of String} "grape", "orange", "melon", "berry"}
+        def z = {{Array-of int} 10, 50, 20, 30}
+        {require-exception IllegalArgumentException do
+            {ArrayUtil.minus x, z}
+        }
+        def new-x = {ArrayUtil.minus x, y}
+        {TestCondition.assert new-x.size == 2}
+    },
+    {test-case "range",
+        def x = {range 5 to 7}
+        {TestCondition.assert x[0] == 5}
+        {TestCondition.assert x[1] == 6}
+        {TestCondition.assert x[2] == 7}
+        {TestCondition.assert x.size == 3}
+        def y = {range 'b' to 'c'}
+        {TestCondition.assert y[0] == 'b'}
+        {TestCondition.assert y[1] == 'c'}
+        {TestCondition.assert y.size == 2}
+    },
+    {test-case "ordered-hash-table-of",
+        def hash = {{OrderedHashTable-of String, String}
+                       "k1", "apple", "k2", "banana", "k3", "blueberry"
+                   }
+        {hash.set "k4", "melon"}
+        
+        let (key:String, value:String) = {hash.get-by-index 0}
+        {TestCondition.assert key == "k1"}
+        {TestCondition.assert value == "apple"}
+        set (key, value) = {hash.get-by-index 1}
+        {TestCondition.assert key == "k2"}
+        {TestCondition.assert value == "banana"}
+        set (key, value) = {hash.get-by-index 2}
+        {TestCondition.assert key == "k3"}
+        {TestCondition.assert value == "blueberry"}
+        set (key, value) = {hash.get-by-index 3}
+        {TestCondition.assert key == "k4"}
+        {TestCondition.assert value == "melon"}
+
+        || get-by-index-if-exists
+        let (key1:#String, value1:#String, found?:bool) = {hash.get-by-index-if-exists 0}
+        {TestCondition.assert key1 == "k1"}
+        {TestCondition.assert value1 == "apple"}
+        {TestCondition.assert found? == true}
+        set (key1, value1, found?) = {hash.get-by-index-if-exists 10}
+        {TestCondition.assert found? == false}
+
+        || to-iterator
+        def iter = {hash.to-Iterator}
+        let (val:String, eof?:bool) = {iter.read-one}
+        {TestCondition.assert not eof? and val == "apple"}
+        set (val, eof?) = {iter.read-one}
+        {TestCondition.assert not eof? and val == "banana"}
+        set (val, eof?) = {iter.read-one}
+        {TestCondition.assert not eof? and val == "blueberry"}
+        set (val, eof?) = {iter.read-one}
+        {TestCondition.assert not eof? and val == "melon"}
+        set (val, eof?) = {iter.read-one}
+        {TestCondition.assert eof?}
+
+        || clone
+        def clone = {hash.clone}
+        {TestCondition.assert hash.size == clone.size}
+        {for v key k in clone do
+            {TestCondition.assert hash[k] == v}
+        }
+
+        {TestCondition.assert hash.size == 4}
+        {hash.clear}
+        {TestCondition.assert hash.size == 0}
+
+        || alias
+        def alias = {OrderedHashTable "k1", "v1", "k2", "v2"}
+        {TestCondition.assert alias.size == 2}
+    },
+    {test-case "multi-hash-table-of",
+        def hash = {{MultiHashTable-of String, String}
+                       "k1", "apple", "k2", "banana", "k1", "blueberry", "k1", "melon"
+                   }
+        {hash.set "k3", "orange"}
+        
+        {TestCondition.assert-isa String, {hash.element-type}}
+        {TestCondition.assert-isa String, {hash.key-type}}
+
+        def val-array = {hash.get "k1"}
+        {TestCondition.assert val-array.size == 3}
+
+        let (val-array1:{Array-of String}, found?:bool) = {hash.get-if-exists "k2"}
+        {TestCondition.assert val-array1.size == 1}
+        {TestCondition.assert found? == true}
+        set (val-array1, found?) = {hash.get-if-exists "kk"}
+        {TestCondition.assert found? == false}
+
+        let key:String = {hash.get-key "k1"}
+        {TestCondition.assert key == "k1"}
+        {require-exception KeyNotFoundException do
+            set key = {hash.get-key "kk"}
+        }
+
+        let (key1:String, found1?:bool) = {hash.get-key-if-exists "k2"}
+        {TestCondition.assert key1 == "k2"}
+        {TestCondition.assert found1? == true}
+        set (key1, found1?) = {hash.get-key-if-exists "kk"}
+        {TestCondition.assert found1? == false}
+
+        let key-exists?:bool = {hash.key-exists? "k1"}
+        {TestCondition.assert key-exists? == true}
+        set key-exists? = {hash.key-exists? "kk"}
+        {TestCondition.assert key-exists? == false}
+
+        {TestCondition.assert hash.size == 5}
+        {hash.remove "k3"}
+        {TestCondition.assert hash.size == 4}
+        {require-exception KeyNotFoundException do
+            {hash.remove "kk"}
+        }
+        {TestCondition.assert hash.size == 4}
+        {hash.clear}
+        {TestCondition.assert hash.size == 0}
+
+        || alias
+        def alias = {MultiHashTable "k1", "v1", "k2", "v2", "k2", "v2"}
+        {TestCondition.assert alias.size == 3}
+    },
+    {test-case "multi-key-hash-table-2-of",
+        def hash1 = {{MultiKeyHashTable-2-of String, int, String}
+                        "k1", 10, "apple",
+                        "k2", 10, "banana"
+                    }
+        {hash1.set "k3", 20, "orange"}
+        set hash1["k4", 20] = "blueberry"
+        
+        let value:String = {hash1.get "k1", 10}
+        {TestCondition.assert value == "apple"}
+        set value = hash1["k2", 10]
+        {TestCondition.assert value == "banana"}
+
+        {TestCondition.assert hash1.size == 4}
+        {hash1.remove "k1", 10}
+        let (value1:String, found?:bool) = {hash1.get-if-exists  "k1", 10}
+        {TestCondition.assert not found?}
+        {TestCondition.assert hash1.size == 3}
+        {hash1.clear}
+        {TestCondition.assert hash1.size == 0}
+
+        || alias
+        def alias = {MultiKeyHashTable-2 "k1", "k2", "v1"}
+        {TestCondition.assert alias.size == 1}
+    },
+    {test-case "multi-key-hash-table-3-of",
+        def hash1 = {{MultiKeyHashTable-3-of String, int, int, String}
+                        "k1", 10, 20, "apple",
+                        "k2", 10, 30, "banana"
+                    }
+        {hash1.set "k3", 20, 40, "orange"}
+        set hash1["k4", 20, 40] = "blueberry"
+
+        let value:String = {hash1.get "k1", 10, 20}
+        {TestCondition.assert value == "apple"}
+        set value = hash1["k2", 10, 30]
+        {TestCondition.assert value == "banana"}
+
+        let (value1:String, found?:bool) = {hash1.get-if-exists  "k1", 10, 20}
+        {TestCondition.assert value1 == "apple"}
+        {TestCondition.assert found? == true}
+        set (value1, found?) = {hash1.get-if-exists  "k1", 10, 30}
+        {TestCondition.assert found? == false}
+
+        let (key1:String, key2:int, key3:int) = {hash1.get-key "k1", 10, 20}
+        {TestCondition.assert key1 == "k1"}
+        {TestCondition.assert key2 == 10}
+        {TestCondition.assert key3 == 20}
+        {require-exception KeyNotFoundException do
+            set (key1, key2, key3) = {hash1.get-key "k1", 10, 30}
+        }
+
+        let (key1-1:String, key2-1:int, key3-1:int, found-1?:bool) = {hash1.get-key-if-exists "k1", 10, 20}
+        {TestCondition.assert key1-1 == "k1"}
+        {TestCondition.assert key2-1 == 10}
+        {TestCondition.assert key3-1 == 20}
+        {TestCondition.assert found-1? == true}
+        set (key1-1, key2-1, key3-1, found-1?) = {hash1.get-key-if-exists "k1", 10, 30}
+        {TestCondition.assert found-1? == false}
+
+        let key-exists?:bool = {hash1.key-exists? "k1", 10, 20}
+        {TestCondition.assert key-exists? == true}
+        set key-exists? =  {hash1.key-exists? "k1", 10, 30}
+        {TestCondition.assert key-exists? == false}
+
+        {TestCondition.assert hash1.size == 4}
+        {hash1.remove "k1", 10, 20}
+        {TestCondition.assert hash1.size == 3}
+        {require-exception KeyNotFoundException do
+            set (key1, key2, key3) = {hash1.get-key "k1", 10, 20}
+        }
+        {TestCondition.assert hash1.size == 3}
+        {hash1.clear}
+        {TestCondition.assert hash1.size == 0}
+        
+        || alias
+        def alias = {MultiKeyHashTable-3 "k1", "k2", "k3", "v1"}
+        {TestCondition.assert alias.size == 1}
+    },
+    {test-case "multi-key-hash-table-of.from-key-name",
+        def hash1 = {{MultiKeyHashTable-3-of String, int, int, String}.from-key-name
+                        "a", "b", "c",
+                        "k1", 10, 20, "apple",
+                        "k2", 10, 30, "banana"
+                    }
+        {hash1.set "k3", 20, 40, "orange"}
+        set hash1["k4", 20, 40] = "blueberry"
+
+        let value:String = {hash1.get "k1", 10, 20}
+        {TestCondition.assert value == "apple"}
+        set value = hash1["k2", 10, 30]
+        {TestCondition.assert value == "banana"}
+
+        let values:{FastArray-of String} = {hash1.get-from-key-name b = 10}
+        {TestCondition.assert values.size == 2}
+        set values = {hash1.get-from-key-name a = "k1", b = 10}
+        {TestCondition.assert values.size == 1}
+        set values = {hash1.get-from-key-name a = "k1", b = 10, c = 30}
+        {TestCondition.assert values.size == 0}
+
+        let (value1:String, found?:bool) = {hash1.get-if-exists  "k1", 10, 20}
+        {TestCondition.assert value1 == "apple"}
+        {TestCondition.assert found? == true}
+        set (value1, found?) = {hash1.get-if-exists  "k1", 10, 30}
+        {TestCondition.assert found? == false}
+
+        let (key1:String, key2:int, key3:int) = {hash1.get-key "k1", 10, 20}
+        {TestCondition.assert key1 == "k1"}
+        {TestCondition.assert key2 == 10}
+        {TestCondition.assert key3 == 20}
+        {require-exception KeyNotFoundException do
+            set (key1, key2, key3) = {hash1.get-key "k1", 10, 30}
+        }
+
+        let (key1-1:String, key2-1:int, key3-1:int, found-1?:bool) = {hash1.get-key-if-exists "k1", 10, 20}
+        {TestCondition.assert key1-1 == "k1"}
+        {TestCondition.assert key2-1 == 10}
+        {TestCondition.assert key3-1 == 20}
+        {TestCondition.assert found-1? == true}
+        set (key1-1, key2-1, key3-1, found-1?) = {hash1.get-key-if-exists "k1", 10, 30}
+        {TestCondition.assert found-1? == false}
+
+        let key-exists?:bool = {hash1.key-exists? "k1", 10, 20}
+        {TestCondition.assert key-exists? == true}
+        set key-exists? =  {hash1.key-exists? "k1", 10, 30}
+        {TestCondition.assert key-exists? == false}
+
+        {TestCondition.assert hash1.size == 4}
+        {hash1.remove "k1", 10, 20}
+        {TestCondition.assert hash1.size == 3}
+        {require-exception KeyNotFoundException do
+            set (key1, key2, key3) = {hash1.get-key "k1", 10, 20}
+        }
+        {TestCondition.assert hash1.size == 3}
+        {hash1.clear}
+        {TestCondition.assert hash1.size == 0}
+
+        {hash1.set "k1", 10, 20, "apple"}
+        {hash1.set "k2", 10, 30, "banana"}
+        {hash1.set "k3", 20, 40, "orange"}
+        {hash1.set "k4", 20, 40, "blueberry"}
+
+        {TestCondition.assert hash1.size == 4}
+        {hash1.remove-from-key-name b = 10}
+        {TestCondition.assert hash1.size == 2}
+        {hash1.remove-from-key-name a = "k3", b = 20}
+        {TestCondition.assert hash1.size == 1}
+        {require-exception KeyNotFoundException do
+            {hash1.remove-from-key-name a = "k3", b = 20}
+        }
+    },
+    {test-case "HashUtil equals?",
+        def h1 = {{HashTable-of int, String} 0, "apple", 1, "banana"}
+        def h2 = {{HashTable-of int, String} 1, "banana", 0, "apple"}
+        def h3 = {{HashTable-of int, String} 1, "banana", 0, "appleapple"}
+        def h4 = {{HashTable-of int, String} 0, "apple", 1, "banana", 2, "orange"}
+        {TestCondition.assert {HashTableUtil.equals? h1, h2}}
+        {TestCondition.assert {HashTableUtil.equals? h1, h1}}
+        {TestCondition.assert not {HashTableUtil.equals? h2, h3}}
+        {TestCondition.assert not {HashTableUtil.equals? h1, h4}}
+    },
+    {test-case "HashUtil concat",
+        def h1 = {{HashTable-of int, String} 0, "apple", 1, "banana"}
+        def h2 = {{HashTable-of int, String} 2, "orange", 3, "banana", 0, "pine"}
+        {HashTableUtil.concat h1, h2}
+        {TestCondition.assert h1.size == 4}
+        {TestCondition.assert h2.size == 3}
+    },
+    {test-case "HashUtil concat-clone",
+        def h1 = {{HashTable-of int, String} 0, "apple", 1, "banana"}
+        def h2 = {{HashTable-of int, String} 2, "orange", 3, "banana", 0, "pine"}
+        def h3 = {HashTableUtil.concat-clone h1, h2}
+        {TestCondition.assert h1.size == 2}
+        {TestCondition.assert h2.size == 3}
+        {TestCondition.assert h3.size == 4}
+    },
+    {test-case "HashUtil is-HashTable-of",
+        def hash = {{HashTable-of String, String}
+                       "a", "apple", "b", "banana", "c", "orange"
+                   }
+        def array = {{Array-of String} "car", "bus", "train"}
+        def str = "test"
+        def num = 100
+        
+        {TestCondition.assert {HashTableUtil.isa-HashTable? hash}}
+        {TestCondition.assert not {HashTableUtil.isa-HashTable? array}}
+        {TestCondition.assert not {HashTableUtil.isa-HashTable? str}}
+        {TestCondition.assert not {HashTableUtil.isa-HashTable? num}}
+
+        def sub-hash = {SubHashTable}
+        {TestCondition.assert {HashTableUtil.isa-HashTable? sub-hash}}
+
+        ||コンソールに出力される
+        {HashTableUtil.output hash}
+        ||コンソールに出力されない
+        {HashTableUtil.output array}
+    },
+    {test-case "from-object",
+        def h ={HashTableUtil.from-object {Foo}}
+        {for k in {StringArray "v1", "v2", "v3", "v4", "v5", "v6", "v7", "g1", "s1"} do
+            def (value, exists?) = {h.get-key-if-exists k}
+            ||{output {h.get k}}
+            {TestCondition.assert exists?}
+        }
+        def (value, exists?) = {h.get-key-if-exists "v0"}
+        {TestCondition.assert not exists?}
+    },
+    {test-case "ordered-set-of",
+        def s = {{OrderedSet-of String} "apple", "banana", "orange"}
+        let v:String = ""
+        
+        set v = {s.get-member-by-index 0}
+        {TestCondition.assert v == "apple"}
+        set v = {s.get-member-by-index 2}
+        {TestCondition.assert v == "orange"}
+        {require-exception KeyNotFoundException do
+            set v = {s.get-member-by-index 3}
+        }
+        
+        let found?:bool
+        set (v, found?) = {s.get-member-if-exists-by-index 0}
+        {TestCondition.assert v == "apple"}
+        {TestCondition.assert found? == true}
+        set (v, found?) = {s.get-member-if-exists-by-index 2}
+        {TestCondition.assert v == "orange"}
+        {TestCondition.assert found? == true}
+        set (v, found?) = {s.get-member-if-exists-by-index 3}
+        {TestCondition.assert found? == false}
+
+        let index:int = 0
+        {for e in {s.to-Iterator} do
+            {TestCondition.assert {s.get-member-if-exists-by-index index} == e}
+            {inc index}
+        }
+
+        {s.insert "berry"}
+        set v = {s.get-member-by-index 3}
+        {TestCondition.assert v == "berry"}
+
+        {require-exception Error do
+            {s.insert "berry", error-if-present? = true}
+        }
+
+        def s1 = {s.insert-clone "mango"}
+        set v = {s1.get-member-by-index 4}
+        {TestCondition.assert v == "mango"}
+
+        {TestCondition.assert not {s.member? "mango"}}
+        {TestCondition.assert {s1.member? "mango"}}
+        {TestCondition.assert s.size == 4}
+
+        {s.remove "mango", error-if-missing? = false}
+        {require-exception KeyNotFoundException do
+            {s.remove "mango"}
+        }
+
+        def s2 = {s.remove-clone "berry"}
+        set v = {s2.get-member-by-index 2}
+        {TestCondition.assert s2.size == 3}
+
+        {TestCondition.assert {s.member? "berry"}}
+        {TestCondition.assert not {s2.member? "berry"}}
+        {s.remove-clone "no berry", error-if-missing? = false}
+        {require-exception KeyNotFoundException do
+            {s.remove-clone "no berry"}
+        }
+
+        {s2.remove-by-index 0}
+        {TestCondition.assert s2.size == 2}
+
+        {s2.remove-by-index 2, error-if-missing? = false}
+        {require-exception KeyNotFoundException do
+            {s2.remove-by-index 2}
+        }
+
+        def s3 = {s2.remove-clone-by-index 0}
+        {TestCondition.assert s2.size == 2}
+        {TestCondition.assert s3.size == 1}
+
+        {s2.remove-clone-by-index 2, error-if-missing? = false}
+        {require-exception KeyNotFoundException do
+            {s2.remove-clone-by-index 2}
+        }
+
+        || alias
+        def alias = {OrderedSet "v1", "v2"}
+        {TestCondition.assert alias.size == 2}
+    },
+    {test-case "tuple",
+        || instead of Tuple2-of
+        def t2 = {tuple 100, "abc"}
+        {TestCondition.assert t2 == {{Tuple2-of int, String} 100, "abc"}}
+        || instead of Tuple3-of
+        def t3 = {tuple true, 10.5, 'c'}
+        {TestCondition.assert t3 == {{Tuple3-of bool, double, char} true, 10.5, 'c'}}
+        || instead of Tuple4-of
+        def t4 = {tuple true, 10.5, 'c', 10.5}
+        {TestCondition.assert t4 == {{Tuple4-of bool, double, char, double} true, 10.5, 'c', 10.5}}
+        || instead of Tuple5-of
+        def t5 = {tuple "abc", true, 10.5, 'c', 10.5}
+        {TestCondition.assert t5 == {{Tuple5-of String, bool, double, char, double} "abc", true, 10.5, 'c', 10.5}}
+    }
+}
+
+
+
+|| HashTableUtil用のクラス
+{define-class public SuperFoo
+  field public s1:int
+}
+{define-class public Foo {inherits SuperFoo}
+  field private v0:int
+  field public-get v1:int
+  field public-get v2:#String
+  field public-get v3:String = "v3"
+  field public-get v4:HashTable = {HashTable "a", "b", "c", "d"}
+  field public-get v5:StringArray = {StringArray "a", "b", "c", "d"}
+  field public-get v6:Hoge = {Hoge}
+  field public-get v7:DateTime = {DateTime}
+  {getter public {g1}:String
+    {return "getter's 1"}
+  }
+}
+{define-class public Hoge
+  field public h1:#String
+}
+{define-class SubHashTable {inherits HashTable}}

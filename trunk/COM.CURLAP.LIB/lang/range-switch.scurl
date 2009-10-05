@@ -1,0 +1,116 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+
+||
+|| Range switch (since 0.7)
+||
+
+{doc-next
+    {purpose 指定した範囲に含まれているかをスイッチします。}
+    {details
+        下記は例となります。
+        {curl-code
+            def i = 50 
+            def result =
+                {range-switch i
+                    case 0 to 20 do "Too bad"
+                    case 26 to 50 do "Bad"
+                    case 51 to 75 do "Not bad"
+                    case 75 to 99 do "Good"
+                    case 100 do "Excellent"
+                    case 101 to 200, 400 to 600 do "Strange!?"
+                    else {unreachable}
+                }
+            {output result} || ==> "Bad"
+        }
+    }
+}
+{define-macro public {range-switch
+                         ?var:identifier
+                         ?clauses:{sequence
+                                   case
+                                      ?:{bounded-comma-sequence
+                                            1, infinity,
+                                            ?:{one-of
+                                                  {pattern ?:expression to ?:expression},
+                                                  {pattern ?:expression}
+                                              }
+                                        }
+                                   do
+                                      ?:tokens
+                                  }
+                         ?final:{optional else ?:tokens}
+                     }
+    
+    let content:#CurlSource
+    
+    || clauses (case ... do)
+    {for i = clauses.size above 0 do
+        def clause = clauses[i - 1]
+        {syntax-switch clause, must-match? = true
+         case
+            {pattern
+                case ?ranges:{comma-sequence
+                                 ?:{one-of
+                                       {pattern ?:expression to ?:expression},
+                                       {pattern ?:expression}
+                                   }
+                             }
+             do ?body:tokens
+            }
+         do
+            {if i == clauses.size then
+                || final (else)
+                {syntax-switch final
+                 case {pattern else ?body:tokens} do
+                    set content = body
+                }
+            }
+            let condition:#CurlSource
+            {for r key i in ranges do
+                set condition = 
+                    {syntax-switch r
+                     case {pattern ?begin:expression to ?end:expression} do
+                        {if i == 0 then
+                            {expand-template (?var >= ?begin and ?var <= ?end)}
+                         else
+                            {expand-template (?condition or ?var >= ?begin and ?var <= ?end)}
+                        }
+                     case {pattern ?value:expression} do
+                        {if i == 0 then
+                            {expand-template ?var == ?value}
+                         else
+                            {expand-template ?condition or ?var == ?value}
+                        }
+                     else
+                        {unreachable}
+                    }
+            }
+            set content =
+                {expand-template
+                    {if ?condition then
+                        ?body
+                     else
+                        ?content
+                    }
+                }
+        }
+    }
+    {return {expand-template {value ?content}}}
+}

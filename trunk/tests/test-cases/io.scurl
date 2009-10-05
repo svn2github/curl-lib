@@ -1,0 +1,169 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from COM.CURLAP.LIB.IO}
+{import * from CURL.DATA-ACCESS.BASE}
+
+{TestSuite "COM.CURLAP.LIB.IO",
+    {test-case "read/save/compress",
+        def uncomp-file = {url "file/uncompress.txt"}
+        def comp-file = {url "file/compress.gzip"}
+
+        || save
+        {save-text-to-url uncomp-file, "abcd"}
+
+        || read
+        {TestCondition.assert {read-text-from-url uncomp-file} == "abcd"}
+        
+        || compress
+        {compress
+            {read-open-byte uncomp-file},
+            {write-open-byte comp-file}
+        }
+        {delete uncomp-file}
+
+        || uncompress
+        {uncompress
+            {read-open-byte comp-file},
+            {write-open-byte uncomp-file}
+        }
+        {TestCondition.assert {read-text-from-url uncomp-file} == "abcd"}
+        {delete comp-file}
+        {delete uncomp-file}
+    },
+    {test-case "read/save object",
+        || save
+        let src:#HashTable = {HashTable "key1", 10, "key2", 20, "key3", {DateTime}}
+        def obj-url = {url "file/obj.bin"}
+        {save-object-to-url obj-url, src}
+        set src = null
+
+        || read
+        def dst = {read-object-from-url obj-url} asa HashTable
+        {TestCondition.assert dst["key1"] == 10}
+        {TestCondition.assert dst["key2"] == 20}
+        {TestCondition.assert dst["key3"] isa DateTime}
+        {delete obj-url}
+    },
+    {test-case "directory util",
+        || create directories and files
+        def dirs = {{Array-of Url}
+                       {url "file/test1"},
+                       {url "file/test1/t-1"},
+                       {url "file/test1/t-2"},
+                       {url "file/test2"},
+                       {url "file/test2/t-1"},
+                       {url "file/test2/t-2"},
+                       {url "file/test3"}
+                   }
+        {for dir in dirs do
+            {create-Directory dir, error-if-exists? = false} || create dirs
+        }
+        def files = {{Array-of Url}
+                        {url "file/test1/a-1.txt"},
+                        {url "file/test1/b-1.txt"},
+                        {url "file/test1/c-1.txt"},
+                        {url "file/test2/a-1.txt"},
+                        {url "file/test2/b-1.txt"},
+                        {url "file/test2/c-1.txt"},
+                        {url "file/test2/t-2/a-1.txt"},
+                        {url "file/test2/t-2/b-1.txt"},
+                        {url "file/test2/t-2/c-1.txt"}
+                    }
+        {for file in files do
+            {create-File file, error-if-exists? = false} || create files
+        }
+
+        || search by name
+        def r1 =
+            {DirectoryUtil.search-by-name
+                {url "file"}, || directory
+                "a-1.txt",
+                recurse? = true
+            }
+        {TestCondition.assert r1.size == 3}
+        {TestCondition.assert r1[0].filename == files[0].filename}
+        {TestCondition.assert r1[1].filename == files[3].filename}
+        {TestCondition.assert r1[2].filename == files[6].filename}
+        {TestCondition.assert {local-file-exists? r1[0]}}
+        {TestCondition.assert {local-file-exists? r1[1]}}
+        {TestCondition.assert {local-file-exists? r1[2]}}
+        
+        || search by proc
+        def r2 =
+            {DirectoryUtil.search
+                {url "file"}, || directory
+                {proc {u:Url}:bool
+                    def name = u.filename
+                    {return name == "c-1.txt" or name == "test1"}
+                },
+                recurse? = true
+            }
+        {TestCondition.assert r2.size == 4}
+
+        || search by date
+        def now = {DateTime}
+        def r3 =
+            {DirectoryUtil.search
+                {url "file"}, || directory
+                {proc {u:Url}:bool
+                    def file = {u.resolve}
+                    {if file isa File then
+                        {if-non-null la = file.when-last-accessed then
+                            {return {now.compare la} > 0}
+                        }
+                    }
+                    {return false}
+                },
+                recurse? = true,
+                directory? = false
+            }
+        {TestCondition.assert r3.size >= files.size}
+        
+        || delete directories
+        {for dir in dirs do
+            {delete dir, error-if-missing? = false, recurse? = true} || delete
+        }
+    },
+    {test-case "open/save recordset",
+        def record = {RecordSet
+                         {RecordFields
+                             {RecordField "c1", domain = int, index-type = RecordFieldIndexType.unique},
+                             {RecordField "c2", domain = String},
+                             {RecordField "c3", domain = DateTime}
+                         },
+                         {RecordData c1 = 1, c2 = "v1", c3 = {DateTime}},
+                         {RecordData c1 = 2, c2 = "v2", c3 = {DateTime}},
+                         {RecordData c1 = 3, c2 = "v3", c3 = {DateTime}},
+                         {RecordData c1 = 4, c2 = "v4", c3 = {DateTime}},
+                         {RecordData c1 = 5, c2 = "v5", c3 = {DateTime}}
+                     }
+        def path = "file/record.bin"
+        {save-record-set-to-url {url path}, record}
+        def restore = {read-record-set-from-url {url path}}
+        {TestCondition.assert restore != record}
+        {TestCondition.assert restore.size == record.size}
+        def fields = record.fields
+        {TestCondition.assert fields["c1"].domain.type == int}
+        {TestCondition.assert fields["c1"].index-type == RecordFieldIndexType.unique}
+        {TestCondition.assert fields["c2"].domain.type == String}
+        {TestCondition.assert fields["c3"].domain.type == DateTime}
+        {delete {url path}}
+    }
+}
+
