@@ -14,6 +14,7 @@
 
 |||
 ||| @authors Hitoshi Okada, Yoshitaka Fukuta, Izumi Kashiwagi
+|||          Mitsunori Mine, Hiroshi Miyazaki
 |||
 
 {curl 6.0, 7.0 manifest}
@@ -78,5 +79,9 @@
 
 {component package COM.CURLAP.LIB.MESSAGES,
     location = "messages/load.scurl"
+}
+
+{component file Win32WMI.dll,
+    location = {url "environment/win32wmi.dll"}    
 }
 
