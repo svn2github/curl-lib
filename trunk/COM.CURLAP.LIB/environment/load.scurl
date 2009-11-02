@@ -26,5 +26,6 @@
     "component.scurl",
     "environment.scurl",
     "if-local-applet.scurl",
-    "network.scurl"
+    "network.scurl",
+    "win32wmi.scurl"
 }
