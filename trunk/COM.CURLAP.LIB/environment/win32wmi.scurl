@@ -1,0 +1,282 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Mitsunori Mine, Hiroshi Miyazaki
+|||
+
+{import * from CURL.LANGUAGE.DLL-INTERFACE}
+
+|| win32wmi.dll 用構造体定義
+{define-C-struct package WmiNetworkAdapter
+  {defaults string-rep = CStringUTF16}
+  field  name:String
+  field  mac-address:String
+  field  net-connection-id:#String
+  field  net-connection-status:uint16
+  field _pad:uint16
+  field _next:CPointer
+}
+
+||=========================================================
+|| Win32 WMI DLL アクセスクラス
+||=========================================================
+{doc-next
+    {purpose WMI DLL にアクセスするためのクラス }
+    {details 
+        {itemize 以下の dll-methodを持つ。}
+        {itemize ・　wmi-logical-disk-volume-serial-number  }
+        {itemize ・　wmi-base-board-serial-number }
+        {itemize ・　wmi-string-free}
+        {itemize ・　wmi-network-adapter-info}
+        {itemize ・　wmi-network-adapter-free}
+        {itemize ・　wmi-network-adapter-next}    
+    }
+}
+{define-dll-class package Win32WMIAccess
+  {defaults
+      calling-convention = stdcall,
+      string-rep         = CStringUTF16
+  }
+  
+  || コンストラクタ
+  {constructor {default}
+      {construct-super {SharedLibrary.from-url 
+                           {manifest-url "file", "Win32WMI.dll"}
+                       }
+      }
+  }
+  
+  || wchar_t *wmiLogicalDiskVolumeSerialNumber(wchar_t *drive)
+  {doc-next
+      {purpose ドライブのボリュームシリアルNo.を取得するmethod }
+      {parameter drive , ドライブの指定 }
+      {return-vals drive , ドライブのボリュームシリアルNo. }
+      {details }
+  }
+  {dll-method
+      {wmi-logical-disk-volume-serial-number ("wmiLogicalDiskVolumeSerialNumber")
+          drive:CStringUTF16
+      }:CStringUTF16
+  }
+  
+  || void wmiBaseBoardSerialNumber()
+  {doc-next
+      {purpose マザーボードのシリアルNo.を取得するmethod }
+      {return-vals   シリアルNo. }
+      {details }
+  }
+  {dll-method
+      {wmi-base-board-serial-number ("wmiBaseBoardSerialNumber")}:CStringUTF16
+  }
+  
+  || void wmiStringFree(wchar_t *ptr)
+  {doc-next
+      {purpose ドライブのボリュームシリアルNo.と、ベースボードシリアルNO.を解放するためのmethod }
+      {parameter ptr , 解放するポインタ }
+      {details }
+  }
+  {dll-method
+      {wmi-string-free ("wmiStringFree") ptr:CStringUTF16}:void
+  }
+  
+  ||
+  {doc-next
+      {purpose NetworkAdapterの情報を取得するmethod }
+      {return-vals  NetworkAdapterの情報 }
+      {details }
+  }
+  {dll-method public
+      {wmi-network-adapter-info ("wmiNetworkAdapterInfo")}:WmiNetworkAdapter
+  }
+  
+  {doc-next
+      {purpose NetworkAdapterの情報は動的メモリ確保されているので、解放するためのmethod }
+      {parameter ptr , NetworkAdapterの情報をもつ先頭のポインタ }
+      {details NetworkAdapterの情報は、C言語で動的メモリ確保されているので、解放するために必要となる。
+          {itemize NetworkAdapterの情報が複数ある場合は、連鎖しているため、1番目の情報の先頭アドレスを指定する。}
+          {itemize これにより、連鎖先の情報も解放される。}
+      }
+  }
+  {dll-method
+      {wmi-network-adapter-free ("wmiNetworkAdapterFree") ptr:WmiNetworkAdapter}:void
+  }
+  
+  {doc-next
+      {purpose 次のNetworkAdapterの情報があれば、次の情報を取得するmethod }
+      {parameter ptr , 現在のNetworkAdapterを指すポインタ }
+      {return-vals  次のNetworkAdapterを指すポインタ }
+      {details }
+  }
+  {dll-method
+      {wmi-network-adapter-next ("wmiNetworkAdapterNext") ptr:WmiNetworkAdapter}:WmiNetworkAdapter
+  }
+}
+
+||
+|| WMI アクセスクラス
+||
+{doc-next
+    {purpose WMIにアクセスするためのクラス }
+    {details 
+        {itemize 以下のフィールドを持つ。}
+        {itemize ・　_wmi }
+        {itemize ・　_board-serial }
+        {itemize 以下のmethodを持つ。}
+        {itemize ・　get-logical-disk-volume-serial-number}
+        {itemize ・　get-base-board-serial-number}
+        {itemize ・　get-mac-address}
+    }
+}
+{define-class public final WmiAccess
+  let private _instance:#WmiAccess
+  field private _wmi:#Win32WMIAccess
+  field private _board-serial:#String
+  field mac-addresses:#{Array-of NetworkAdapter } 
+  
+  {constructor private {default}
+    || Win32以外は未サポート
+    {platform-switch
+        case "win32" do
+        set self._wmi = {Win32WMIAccess}
+        else
+        {error "unsupported platform"}
+    }
+  }
+  
+  {factory public {get-instance}:WmiAccess
+    {if WmiAccess._instance == null then
+        set WmiAccess._instance = {WmiAccess}
+    }
+    {return {non-null WmiAccess._instance}}
+  }
+  
+  ||=========================================================
+  || ドライブのボリュームシリアルNo.を取得する
+  ||=========================================================
+  {doc-next
+    {purpose ドライブのボリュームシリアルNo.を取得するmethod }
+    {parameter drive , ドライブの指定 }
+    {return-vals drive , ドライブのボリュームシリアルNo. }
+    {details }
+  }
+  {method public {get-logical-disk-volume-serial-number drive:String}:String
+    def str =
+        {self._wmi.wmi-logical-disk-volume-serial-number {CStringUTF16 drive}}
+    def serial = 
+        {if-non-null serial = {str.to-String-or-null} then
+            serial
+         else
+            ""
+        }
+    {self._wmi.wmi-string-free str}
+    {return serial}
+  }
+  
+  ||=========================================================
+  || マザーボードのシリアルNo.を取得する
+  ||=========================================================
+  {doc-next
+    {purpose マザーボードのシリアルNo.を取得するmethod }
+    {parameter force? , 一度呼び出したことがあるならば、その時作成されたインスタンスを再使用し、再作成しない指定(true)のパラメータ }
+    {return-vals self._board-serial , シリアルNo. }
+    {details }
+  }
+  {method public {get-base-board-serial-number force?:bool = false}:String
+    {if force? or self._board-serial == null then
+        def str =
+            {self._wmi.wmi-base-board-serial-number}
+        def serial = 
+            {if-non-null serial = {str.to-String-or-null} then
+                serial
+             else
+                ""
+            }
+        {self._wmi.wmi-string-free str}
+        
+        set self._board-serial = serial
+    }
+    {return {non-null self._board-serial}}
+  }
+  
+  {doc-next
+    {purpose MACAddressを取得するmethod }
+    {parameter force? , 一度呼び出したことがあるならば、その時作成されたインスタンスを再使用し、再作成しない指定(true)のパラメータ }
+    {return-vals mac-addresses , 「値を格納するための実体クラス」の配列 }
+    {details
+        {itemize ・ MACAddress一つの単位について、以下の4つの情報を持つ。
+            {itemize -　name }
+            {itemize -　MACAddress }
+            {itemize -　net-connection-id }
+            {itemize -　net-connection-status }
+        }
+        {itemize ・ MACAddressが複数見つかる場合は、mac-addressesに上記の４つを「一つの情報単位」として配列に格納する。 }
+    }
+  }
+  {method public {get-mac-address force?:bool = false}:#{Array-of NetworkAdapter}
+    {if force?　 or self.mac-addresses == null then
+        set self.mac-addresses = { new {Array-of NetworkAdapter } }
+        let info1:WmiNetworkAdapter = {self._wmi.wmi-network-adapter-info}　           
+        let info:WmiNetworkAdapter = info1　                                                                                   
+        {while true  do
+            let mac-ins:NetworkAdapter =
+                {new NetworkAdapter, 
+                    {info.name.to-String},
+                    {info.mac-address.to-String} 
+                }  
+            set mac-ins.net-connection-id =           
+                {try
+                    {info.net-connection-id.to-String}
+                 catch e:Exception do
+                    null         
+                }
+            set mac-ins.net-connection-status  = info.net-connection-status    
+            {self.mac-addresses.append mac-ins} 
+            {if info._next == 0x0 then 
+                {break}
+             else
+                set info = {self._wmi.wmi-network-adapter-next info}    
+            }        
+        }
+        {self._wmi.wmi-network-adapter-free info1} 
+    }
+    {return  self.mac-addresses} 
+  }
+}
+
+{doc-next
+    {purpose DLLから取得した MACAddress等の情報を当クラスのフィールドに格納する}
+    {details
+        以下の4つのフィールドを持つ。
+        {itemize ・　name　　　　　　　　　MACAddressの名前 }
+        {itemize ・　mac-address　　　　MACAddressの値  }
+        {itemize ・　net-connection-id idの値（null、 ローカル エリア接続 、ローカル エリア接続 2 等） }
+        {itemize ・　net-connection-status 接続状態を表す数値。接続されている、されていない等を判断する。
+            {itemize    詳細はMSDNの Win32_NetworkAdapter Classを参照。}
+            {itemize Windows XP with SP3 and later:  This property returns a value of 2 for a client that is connected to an authenticated port. }
+            {itemize Windows XP with SP2 and earlier:  This property returns a value of 9 for a client that is connected to an authenticated port. }
+        }
+    }
+}
+{define-class public NetworkAdapter
+  field package-set public-get name:String
+  field package-set public-get mac-address:String  
+  field package-set public-get net-connection-id:#String
+  field package-set public-get net-connection-status:uint16
+  
+  {constructor public {default  name:String , mac-address:String}
+    set self.name = name
+    set self.mac-address = mac-address
+  }
+}
