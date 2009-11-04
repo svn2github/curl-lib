@@ -13,13 +13,14 @@
 ||| limitations under the License.
 
 |||
-||| @authors Hitoshi Okada
+||| @authors Hitoshi Okada, Mitsunori Mine, Hiroshi Miyazaki
 |||
 
 {import * from COM.CURLAP.LIB.ENVIRONMENT}
 
 {TestSuite "COM.CURLAP.LIB.ENVIRONMENT",
-    {test-case "env",
+    || environ-switch for switching test stub and etc
+    {test-case "env switch",
         let env:#String = null
         {environment-switch
             case "development" do
@@ -32,5 +33,41 @@
             {TestCondition.fail "Environmentの指定がない。（manifestのmeta-dataにx-environment）"}
         }
         {TestCondition.assert env == {get-current-environment}}
+    },
+    
+    || IP address/Hostname
+    {test-case "ip address and hostname",
+        || HACK! bad testcase
+        {TestCondition.assert {get-ip-address}.size > 0}
+        def hostname = {get-host-name}
+        {TestCondition.assert hostname != null and hostname.size > 0}  
+    },
+    
+    || WMI
+    {test-case "WMI (H/W serial number, MAC address)",
+        || HACK! bad testcase
+        || MAC address 
+        {if-non-null network-adapters = {get-mac-addresses} then
+            {TestCondition.assert network-adapters.size > 0}
+            {for na in network-adapters do
+||++            {dump 
+||++                na.name, 
+||++                na.mac-address,
+||++                na.net-connection-id,
+||++                na.net-connection-status
+||++            }
+                {TestCondition.assert
+                    na.name.size > 0 and na.mac-address.size > 0
+                }
+            }
+        }
+        || The serial number of logical disk
+        def disk-sn = {get-logical-disk-volume-serial-number "C:"|# drive name #|}
+||++    {dump disk-sn}
+        {TestCondition.assert disk-sn.size > 0}
+        || The serial number of motherboard
+        def mb-sn = {get-base-board-serial-number}
+||++    {dump mb-sn}
+        {TestCondition.assert mb-sn.size > 0}
     }
 }
