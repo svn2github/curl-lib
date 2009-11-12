@@ -23,7 +23,8 @@
     "compress.scurl",
     "open.scurl",
     "save.scurl",
-    "directory-util.scurl"
+    "directory-util.scurl",
+    "bytearray.scurl"
 }
 
 
