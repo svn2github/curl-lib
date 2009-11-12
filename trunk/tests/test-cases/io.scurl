@@ -164,6 +164,19 @@
         {TestCondition.assert fields["c2"].domain.type == String}
         {TestCondition.assert fields["c3"].domain.type == DateTime}
         {delete {url path}}
+    },
+    {test-case "byte-array",
+        def s:String = "ABCDE1234"
+        def s-bytes = {object-to-serialized-bytes s}
+        {TestCondition.assert {object-from-serialized-bytes s-bytes} == s}
+
+        def a = {{FastArray-of int} 1, 2, 3}
+        def a-bytes = {object-to-serialized-bytes a}
+        def a-copy = {object-from-serialized-bytes a-bytes}
+        {TestCondition.assert a[0] == a-copy[0]}
+        {TestCondition.assert a[1] == a-copy[1]}
+        {TestCondition.assert a[2] == a-copy[2]}
     }
 }
+
 

@@ -36,8 +36,8 @@
     location = "run.curl"
 }
 
-{component file mark-test.curl,
-    location = "mark-test.curl"
+{component file temporary-test.curl,
+    location = "temporary-test.curl"
 }
 
 {component directory test-cases,
