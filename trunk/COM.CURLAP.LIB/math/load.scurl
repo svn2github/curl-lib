@@ -13,7 +13,7 @@
 ||| limitations under the License.
 
 |||
-||| @authors Taketo Fujishiro
+||| @authors Taketo Fujishiro, Hiroshi Miyazaki
 |||
 
 {curl 6.0, 7.0 package}
@@ -22,4 +22,5 @@
 
 {include
     "util.scurl"
+    "matrix.scurl"
 }
