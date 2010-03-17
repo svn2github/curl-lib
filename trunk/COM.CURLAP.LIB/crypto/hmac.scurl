@@ -1,4 +1,4 @@
-||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+||| Copyright (C) 1998-2010, Sumisho Computer Systems Corp. All Rights Reserved.
 
 ||| Licensed under the Apache License, Version 2.0 (the "License");
 ||| you may not use this file except in compliance with the License.
@@ -24,34 +24,37 @@
     {parameter key, 秘密鍵(StringもしくはByteVecを指定できます。)}
     {parameter data, データ(StringもしくはByteVecを指定できます。)}
     {parameter block-size, ブロックサイズ}
-    {details {docref hmac}}
 }
 {define-proc public inline {hmac-sha-1
                                key:any,
                                data:any
                            }:String
-    def p-to-bytes = 
-        {proc {from:any}:ByteVec
-            {type-switch from
-             case str:String do
-                def len = from.size
-                def bytes = {ByteVec max-size = len}
-                {for i = 0 below len do
-                    {bytes.append {from.get i} asa byte}
-                }
-                {return bytes}
-             case bytes:ByteVec do
-                {return bytes}
-             else
-                {error "引数にはStringもしくはByteVecを指定してください。"}
-            }
-        }
-
     {return
         {hmac
-            {p-to-bytes key}, 
-            {p-to-bytes data},
+            {string-to-bytes key}, 
+            {string-to-bytes data},
             hash-name = "SHA-1"
+        }
+    }
+}
+
+{doc-next
+    {purpose HMAC-MD5}
+    {parameter key, 秘密鍵(StringもしくはByteVecを指定できます。)}
+    {parameter data, データ(StringもしくはByteVecを指定できます。)}
+    {parameter block-size, ブロックサイズ}
+}
+
+|| HMAC-MD5
+{define-proc public inline {hmac-md5
+                               key:any,
+                               data:any
+                           }:String
+    {return
+        {hmac
+            {string-to-bytes key}, 
+            {string-to-bytes data},
+            hash-name = "MD5"
         }
     }
 }
@@ -68,11 +71,11 @@
 ||--        ハッシュ関数を使って、秘密鍵と組み合わせて計算するMACです。
 ||--    }
 ||--}
-{define-proc package inline {hmac
-                                key:ByteVec,
-                                data:ByteVec,
-                                hash-name:String = "SHA-1"
-                            }:String
+{define-proc {hmac
+                 key:ByteVec,
+                 data:ByteVec,
+                 hash-name:String = "SHA-1"
+             }:String
     def p-update = 
         {proc {digest:MsgDigester, bytes:ByteVec}:void
             {for b in bytes do
@@ -87,8 +90,7 @@
             ({SHA-1-Digester}, {SHA-1-Digester}, 64)
          case "MD5" do
             || Digest size = 16 (= MD5-Digest.size * 4)
-            ||({MD5-Digester}, {MD5-Digester}, 64)
-            {error "Not support MsgDigester."}
+            ({MD5-Digester}, {MD5-Digester}, 64)
          else
             {error "Not support MsgDigester."}
         }
@@ -107,16 +109,15 @@
     {p-update md-inner, ipad}
     {p-update md-inner, data}
 
-    def inner-digest = {md-inner.finish}
-||--    def inner-digest =
-||--        {md-inner.finish} asa {switch hash-name
-||--                               case "SHA-1" do
-||--                                  SHA-1-Digest
-||--                               case "MD5" do
-||--                                  MD5-Digest
-||--                               else
-||--                                  {unreachable}
-||--                              }
+    def inner-digest =
+        {md-inner.finish} asa {switch hash-name
+                               case "SHA-1" do
+                                  SHA-1-Digest
+                               case "MD5" do
+                                  MD5-Digest
+                               else
+                                  {unreachable}
+                              }
     def inner = {ByteVec max-size = {inner-digest.size} * 4}
     {for b in inner-digest do
         {inner.append ({bit-srl b, 24} asa byte)}
@@ -131,3 +132,21 @@
     {return {format "%s", {md-outer.finish}}}
 }
 
+|| string to bytes
+{define-proc {string-to-bytes from:any}:ByteVec
+    {return
+        {type-switch from
+         case str:String do
+            def len = from.size
+            def bytes = {ByteVec max-size = len}
+            {for i = 0 below len do
+                {bytes.append {from.get i} asa byte}
+            }
+            bytes
+         case bytes:ByteVec do
+            bytes
+         else
+            {error "引数にはStringもしくはByteVecを指定してください。"}
+        }
+    }
+}

@@ -167,10 +167,10 @@
 
   {method package {init}:void
     || initialize
-    set self.state[0] = (0x067452301 asa uint) ||0x067452301u
-    set self.state[1] = (0x0efcdab89 asa uint) ||0x0efcdab89u
-    set self.state[2] = (0x098badcfe asa uint) ||0x098badcfeu
-    set self.state[3] = (0x010325476 asa uint) ||0x010325476u
+    set self.state[0] = 0x067452301 ||0x067452301u
+    set self.state[1] = 0x0efcdab89 ||0x0efcdab89u
+    set self.state[2] = 0x098badcfe ||0x098badcfeu
+    set self.state[3] = 0x010325476 ||0x010325476u
     
     set self.bits[0] = 0
     set self.bits[1] = 0
@@ -283,16 +283,24 @@
     {return digest}
   }
   
-  
   {method private {apply-round}:void
     def to-int-p =
         {proc {src:{FastArray-of int8}, offset-lng:int}:int64
             {return 
                 {bit-or
                     {bit-and src[(offset-lng * 4) + 0], 0x0000000ff} asa int64,
-                    {bit-sll src[(offset-lng * 4) + 1], 8} asa int64,
-                    {bit-sll src[(offset-lng * 4) + 2], 16} asa int64,
-                    {bit-sll src[(offset-lng * 4) + 3], 24} asa int64
+                    {bit-and 
+                        {bit-sll src[(offset-lng * 4) + 1], 8}, 
+                        0x00000ff00
+                    } asa int64,
+                    {bit-and 
+                        {bit-sll src[(offset-lng * 4) + 2], 16}, 
+                        0x000ff0000
+                    } asa int64,
+                    {bit-and 
+                        {bit-sll src[(offset-lng * 4) + 3], 24}, 
+                        0x0ff000000
+                    } asa int64
                 }
             }
         }
@@ -312,7 +320,7 @@
         {proc {x:int64, y:int64, z:int64}:int64
             {return {bit-and {bit-xor y, {bit-or x, {bit-not z}}}, 0x0ffffffff}}
         }
-
+    
     def step-p =
         {proc {w:int64, f:int64, x:int64, y:int64, z:int64, data:int64, s:int64}:int64
             || HACK int instead of int64 due to bit-xxx procs are not supported.
@@ -325,85 +333,85 @@
                     }
             {return {bit-and (v + x), (0x0ffffffff asa uint) |#0x0ffffffffu#|}}
         }
-
+    
     || state ABCD
     let a:int64 = self.state[0]
     let b:int64 = self.state[1]
     let c:int64 = self.state[2]
     let d:int64 = self.state[3]
-
+    
     || Round1
-    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf,  0} + (0x0d76aa478|#0x0d76aa478u#| asa uint), 7}
-    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf,  1} + (0x0e8c7b756|#0x0e8c7b756u#| asa uint), 12}
-    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf,  2} + (0x0242070db|#0x0242070dbu#| asa uint), 17}
-    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf,  3} + (0x0c1bdceee|#0x0c1bdceeeu#| asa uint), 22}
-    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf,  4} + (0x0f57c0faf|#0x0f57c0fafu#| asa uint), 7}
-    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf,  5} + (0x04787c62a|#0x04787c62au#| asa uint), 12}
-    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf,  6} + (0x0a8304613|#0x0a8304613u#| asa uint), 17}
-    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf,  7} + (0x0fd469501|#0x0fd469501u#| asa uint), 22}
-    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf,  8} + (0x0698098d8|#0x0698098d8u#| asa uint), 7}
-    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf,  9} + (0x08b44f7af|#0x08b44f7afu#| asa uint), 12}
-    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf, 10} + (0x0ffff5bb1|#0x0ffff5bb1u#| asa uint), 17}
-    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf, 11} + (0x0895cd7be|#0x0895cd7beu#| asa uint), 22}
-    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf, 12} + (0x06b901122|#0x06b901122u#| asa uint), 7}
-    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf, 13} + (0x0fd987193|#0x0fd987193u#| asa uint), 12}
-    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf, 14} + (0x0a679438e|#0x0a679438eu#| asa uint), 17}
-    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf, 15} + (0x049b40821|#0x049b40821u#| asa uint), 22}
-
+    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf,  0} + 0x0d76aa478|#0x0d76aa478u#|, 7}
+    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf,  1} + 0x0e8c7b756|#0x0e8c7b756u#|, 12}
+    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf,  2} + 0x0242070db|#0x0242070dbu#|, 17}
+    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf,  3} + 0x0c1bdceee|#0x0c1bdceeeu#|, 22}
+    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf,  4} + 0x0f57c0faf|#0x0f57c0fafu#|, 7}
+    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf,  5} + 0x04787c62a|#0x04787c62au#|, 12}
+    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf,  6} + 0x0a8304613|#0x0a8304613u#|, 17}
+    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf,  7} + 0x0fd469501|#0x0fd469501u#|, 22}
+    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf,  8} + 0x0698098d8|#0x0698098d8u#|, 7}
+    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf,  9} + 0x08b44f7af|#0x08b44f7afu#|, 12}
+    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf, 10} + 0x0ffff5bb1|#0x0ffff5bb1u#|, 17}
+    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf, 11} + 0x0895cd7be|#0x0895cd7beu#|, 22}
+    set a = {step-p a, {round1-p b, c, d}, b, c, d, {to-int-p self.input-buf, 12} + 0x06b901122|#0x06b901122u#|, 7}
+    set d = {step-p d, {round1-p a, b, c}, a, b, c, {to-int-p self.input-buf, 13} + 0x0fd987193|#0x0fd987193u#|, 12}
+    set c = {step-p c, {round1-p d, a, b}, d, a, b, {to-int-p self.input-buf, 14} + 0x0a679438e|#0x0a679438eu#|, 17}
+    set b = {step-p b, {round1-p c, d, a}, c, d, a, {to-int-p self.input-buf, 15} + 0x049b40821|#0x049b40821u#|, 22}
+    
     || Round2
-    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf,  1} + (0x0f61e2562|#0x0f61e2562u#| asa uint), 5}
-    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf,  6} + (0x0c040b340|#0x0c040b340u#| asa uint), 9}
-    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf, 11} + (0x0265e5a51|#0x0265e5a51u#| asa uint), 14}
-    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf,  0} + (0x0e9b6c7aa|#0x0e9b6c7aau#| asa uint), 20}
-    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf,  5} + (0x0d62f105d|#0x0d62f105du#| asa uint), 5}
-    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf, 10} + (0x002441453|#0x002441453u#| asa uint), 9}
-    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf, 15} + (0x0d8a1e681|#0x0d8a1e681u#| asa uint), 14}
-    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf,  4} + (0x0e7d3fbc8|#0x0e7d3fbc8u#| asa uint), 20}
-    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf,  9} + (0x021e1cde6|#0x021e1cde6u#| asa uint), 5}
-    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf, 14} + (0x0c33707d6|#0x0c33707d6u#| asa uint), 9}
-    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf,  3} + (0x0f4d50d87|#0x0f4d50d87u#| asa uint), 14}
-    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf,  8} + (0x0455a14ed|#0x0455a14edu#| asa uint), 20}
-    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf, 13} + (0x0a9e3e905|#0x0a9e3e905u#| asa uint), 5}
-    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf,  2} + (0x0fcefa3f8|#0x0fcefa3f8u#| asa uint), 9}
-    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf,  7} + (0x0676f02d9|#0x0676f02d9u#| asa uint), 14}
-    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf, 12} + (0x08d2a4c8a|#0x08d2a4c8au#| asa uint), 20}
-
+    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf,  1} + 0x0f61e2562|#0x0f61e2562u#|, 5}
+    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf,  6} + 0x0c040b340|#0x0c040b340u#|, 9}
+    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf, 11} + 0x0265e5a51|#0x0265e5a51u#|, 14}
+    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf,  0} + 0x0e9b6c7aa|#0x0e9b6c7aau#|, 20}
+    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf,  5} + 0x0d62f105d|#0x0d62f105du#|, 5}
+    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf, 10} + 0x002441453|#0x002441453u#|, 9}
+    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf, 15} + 0x0d8a1e681|#0x0d8a1e681u#|, 14}
+    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf,  4} + 0x0e7d3fbc8|#0x0e7d3fbc8u#|, 20}
+    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf,  9} + 0x021e1cde6|#0x021e1cde6u#|, 5}
+    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf, 14} + 0x0c33707d6|#0x0c33707d6u#|, 9}
+    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf,  3} + 0x0f4d50d87|#0x0f4d50d87u#|, 14}
+    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf,  8} + 0x0455a14ed|#0x0455a14edu#|, 20}
+    set a = {step-p a, {round2-p b, c, d}, b, c, d, {to-int-p self.input-buf, 13} + 0x0a9e3e905|#0x0a9e3e905u#|, 5}
+    set d = {step-p d, {round2-p a, b, c}, a, b, c, {to-int-p self.input-buf,  2} + 0x0fcefa3f8|#0x0fcefa3f8u#|, 9}
+    set c = {step-p c, {round2-p d, a, b}, d, a, b, {to-int-p self.input-buf,  7} + 0x0676f02d9|#0x0676f02d9u#|, 14}
+    set b = {step-p b, {round2-p c, d, a}, c, d, a, {to-int-p self.input-buf, 12} + 0x08d2a4c8a|#0x08d2a4c8au#|, 20}
+    
     || Round3
-    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf,  5} + (0x0fffa3942|#0x0fffa3942u#| asa uint), 4}
-    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf,  8} + (0x08771f681|#0x08771f681u#| asa uint), 11}
-    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf, 11} + (0x06d9d6122|#0x06d9d6122u#| asa uint), 16}
-    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf, 14} + (0x0fde5380c|#0x0fde5380cu#| asa uint), 23}
-    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf,  1} + (0x0a4beea44|#0x0a4beea44u#| asa uint), 4}
-    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf,  4} + (0x04bdecfa9|#0x04bdecfa9u#| asa uint), 11}
-    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf,  7} + (0x0f6bb4b60|#0x0f6bb4b60u#| asa uint), 16}
-    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf, 10} + (0x0bebfbc70|#0x0bebfbc70u#| asa uint), 23}
-    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf, 13} + (0x0289b7ec6|#0x0289b7ec6u#| asa uint), 4}
-    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf,  0} + (0x0eaa127fa|#0x0eaa127fau#| asa uint), 11}
-    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf,  3} + (0x0d4ef3085|#0x0d4ef3085u#| asa uint), 16}
-    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf,  6} + (0x004881d05|#0x004881d05u#| asa uint), 23}
-    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf,  9} + (0x0d9d4d039|#0x0d9d4d039u#| asa uint), 4}
-    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf, 12} + (0x0e6db99e5|#0x0e6db99e5u#| asa uint), 11}
-    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf, 15} + (0x01fa27cf8|#0x01fa27cf8u#| asa uint), 16}
-    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf,  2} + (0x0c4ac5665|#0x0c4ac5665u#| asa uint), 23}
-
+    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf,  5} + 0x0fffa3942|#0x0fffa3942u#|, 4}
+    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf,  8} + 0x08771f681|#0x08771f681u#|, 11}
+    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf, 11} + 0x06d9d6122|#0x06d9d6122u#|, 16}
+    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf, 14} + 0x0fde5380c|#0x0fde5380cu#|, 23}
+    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf,  1} + 0x0a4beea44|#0x0a4beea44u#|, 4}
+    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf,  4} + 0x04bdecfa9|#0x04bdecfa9u#|, 11}
+    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf,  7} + 0x0f6bb4b60|#0x0f6bb4b60u#|, 16}
+    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf, 10} + 0x0bebfbc70|#0x0bebfbc70u#|, 23}
+    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf, 13} + 0x0289b7ec6|#0x0289b7ec6u#|, 4}
+    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf,  0} + 0x0eaa127fa|#0x0eaa127fau#|, 11}
+    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf,  3} + 0x0d4ef3085|#0x0d4ef3085u#|, 16}
+    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf,  6} + 0x004881d05|#0x004881d05u#|, 23}
+    set a = {step-p a, {round3-p b, c, d}, b, c, d, {to-int-p self.input-buf,  9} + 0x0d9d4d039|#0x0d9d4d039u#|, 4}
+    set d = {step-p d, {round3-p a, b, c}, a, b, c, {to-int-p self.input-buf, 12} + 0x0e6db99e5|#0x0e6db99e5u#|, 11}
+    set c = {step-p c, {round3-p d, a, b}, d, a, b, {to-int-p self.input-buf, 15} + 0x01fa27cf8|#0x01fa27cf8u#|, 16}
+    set b = {step-p b, {round3-p c, d, a}, c, d, a, {to-int-p self.input-buf,  2} + 0x0c4ac5665|#0x0c4ac5665u#|, 23}
+    
     || Round4
-    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf,  0} + (0x0f4292244|#0x0f4292244u#| asa uint), 6}
-    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf,  7} + (0x0432aff97|#0x0432aff97u#| asa uint), 10}
-    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf, 14} + (0x0ab9423a7|#0x0ab9423a7u#| asa uint), 15}
-    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf,  5} + (0x0fc93a039|#0x0fc93a039u#| asa uint), 21}
-    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf, 12} + (0x0655b59c3|#0x0655b59c3u#| asa uint), 6}
-    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf,  3} + (0x08f0ccc92|#0x08f0ccc92u#| asa uint), 10}
-    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf, 10} + (0x0ffeff47d|#0x0ffeff47du#| asa uint), 15}
-    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf,  1} + (0x085845dd1|#0x085845dd1u#| asa uint), 21}
-    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf,  8} + (0x06fa87e4f|#0x06fa87e4fu#| asa uint), 6}
-    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf, 15} + (0x0fe2ce6e0|#0x0fe2ce6e0u#| asa uint), 10}
-    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf,  6} + (0x0a3014314|#0x0a3014314u#| asa uint), 15}
-    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf, 13} + (0x04e0811a1|#0x04e0811a1u#| asa uint), 21}
-    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf,  4} + (0x0f7537e82|#0x0f7537e82u#| asa uint), 6}
-    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf, 11} + (0x0bd3af235|#0x0bd3af235u#| asa uint), 10}
-    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf,  2} + (0x02ad7d2bb|#0x02ad7d2bbu#| asa uint), 15}
-    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf,  9} + (0x0eb86d391|#0x0eb86d391u#| asa uint), 21}
-
+    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf,  0} + 0x0f4292244|#0x0f4292244u#|, 6}
+    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf,  7} + 0x0432aff97|#0x0432aff97u#|, 10}
+    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf, 14} + 0x0ab9423a7|#0x0ab9423a7u#|, 15}
+    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf,  5} + 0x0fc93a039|#0x0fc93a039u#|, 21}
+    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf, 12} + 0x0655b59c3|#0x0655b59c3u#|, 6}
+    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf,  3} + 0x08f0ccc92|#0x08f0ccc92u#|, 10}
+    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf, 10} + 0x0ffeff47d|#0x0ffeff47du#|, 15}
+    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf,  1} + 0x085845dd1|#0x085845dd1u#|, 21}
+    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf,  8} + 0x06fa87e4f|#0x06fa87e4fu#|, 6}
+    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf, 15} + 0x0fe2ce6e0|#0x0fe2ce6e0u#|, 10}
+    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf,  6} + 0x0a3014314|#0x0a3014314u#|, 15}
+    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf, 13} + 0x04e0811a1|#0x04e0811a1u#|, 21}
+    set a = {step-p a, {round4-p b, c, d}, b, c, d, {to-int-p self.input-buf,  4} + 0x0f7537e82|#0x0f7537e82u#|, 6}
+    set d = {step-p d, {round4-p a, b, c}, a, b, c, {to-int-p self.input-buf, 11} + 0x0bd3af235|#0x0bd3af235u#|, 10}
+    set c = {step-p c, {round4-p d, a, b}, d, a, b, {to-int-p self.input-buf,  2} + 0x02ad7d2bb|#0x02ad7d2bbu#|, 15}
+    set b = {step-p b, {round4-p c, d, a}, c, d, a, {to-int-p self.input-buf,  9} + 0x0eb86d391|#0x0eb86d391u#|, 21}
+    
     set self.state[0] = self.state[0] + a
     set self.state[1] = self.state[1] + b
     set self.state[2] = self.state[2] + c
