@@ -55,6 +55,19 @@
             {md5 "test1234"} == "16D7A4FCA7442DDA3AD93C9A726597E4",
             message = {format "[MD5]test1234:%s", {md5 "test1234"}}
         }
+        {TestCondition.assert {md5 "hirokimino"} == "AE081683C9C2A6457074AF0A777FC164"}
+        {TestCondition.assert {md5 "123412341234"} == "4D3DAEEB3EA3D90D4D6E7A20A5B483A9"}
+        {TestCondition.assert {md5 "111111111111"} == "593C9B4A9390551D53E5CACF28EBD638"}
+        {TestCondition.assert {md5 "1"} == "C4CA4238A0B923820DCC509A6F75849B"}
+        {TestCondition.assert {md5 "012345678901234567890123456789012345678901234567890" & 
+                                  "1234567890123456789012345678901234567890123456789"} == 
+            "7A08B07E84641703E5F2C836AA59A170"
+        }
+        {TestCondition.assert {md5 "A"} == "7FC56270E7A70FA81A5935B72EACBE29"}
+        {TestCondition.assert {md5 "HIROKIMINO"} == "96D7AC98CB491ABC23EC9914C8B156D4"}
+        {TestCondition.assert {md5 "abcdefghi123456jklmnopqrstuvwxyz123456789"} == 
+            "0289FF661CD08115B14E12853F1778E9"
+        }
     },
     
     || HMAC-SHA1
@@ -87,11 +100,16 @@
                     0x15,0x16,0x17,0x18,0x19},
                 {ByteVec.from-size 50, 0xcd}
             } == "4C9007F4026250C6BC8414F9BF50C86C2D7235DA"}
-    }
+    },
+    
     || HMAC-MD5
-||--    {test-case "hmac-md5",
-||--        {dump {hmac {string2bytes "Jefe"}, {string2bytes "what do ya want for nothing?"},
-||--                  hash-name = "MD5"}} || == 0x750c783e6ab0b503eaa86e310a5db738
-||--    }
+    {test-case "hmac-md5",
+        {TestCondition.assert
+            {hmac-md5
+                "Jefe",
+                "what do ya want for nothing?"
+            } == "750C783E6AB0B503EAA86E310A5DB738"}
+    }
 }
+
 
