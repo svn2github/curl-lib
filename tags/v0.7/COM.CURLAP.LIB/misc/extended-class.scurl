@@ -1,0 +1,596 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from CURL.LANGUAGE.SOURCE}
+{import * from CURL.LANGUAGE.REFLECTION}
+{import * from CURL.LANGUAGE.REGEXP}
+
+||
+|| Annotation class （アノテーションBaseクラス）
+||
+
+|| Annotation （アノテーションクラス）
+{define-class public abstract Annotation
+  field package event-target:AnnotatedEventTarget
+  {constructor public {default ...:EventHandler}
+    set self.event-target = {AnnotatedEventTarget ...}
+  }
+}
+
+|| AnnotatedEvent (add UnAnnotatedEvent?) *アノテーションセット時に発生するイベント
+{define-class public final AnnotatedEvent {inherits Event}
+  || ClassType or Method or Field or Constructor
+  field public-get element-type:any 
+  {constructor public {default element-type:any}
+    set self.element-type = element-type
+  }
+}
+
+|| AnnotatedEventTarget (package)
+{define-class package final AnnotatedEventTarget {inherits EventTarget}
+  {constructor {default ...:EventHandler}
+    {construct-super ...}
+  }
+}
+
+|| AnnotationException
+{define-class public final AnnotationException {inherits Exception}
+  {constructor public {default message:String}
+    {construct-super message}
+  }
+}
+
+
+||
+|| 拡張define-classマクロ (名前候補：class, define-extended-class, ...etc)
+||  - アノテーション
+||  - static initializer block
+||  - AOP
+{doc-next
+    {purpose
+        通常のdefine-classの拡張されたマクロです。
+        当マクロを利用することにより、アノテーション及びAOP機能を利用できるようになります。
+    }
+    {details
+        基本的には、define-classと利用方法は同様です。
+        但し、アノテーションやAOP機能を利用する場合は異なります。
+        {curl-code
+            || アノテーション機能
+            {define-extended-class public Foo
+              {@Test}
+              {constructor public {default}
+                {@Test}
+              }
+              {method public {do-something}:void
+                {@Test}
+              }
+            }
+        }
+    }
+}
+{define-macro public {define-extended-class
+                       ?access:{one-of
+                                 {pattern public},
+                                 {pattern package},
+                                 {pattern}
+                               }
+                       || TODO:
+                       || ?modifier-list:...
+                       ?class-name:identifier
+                       ?superclasses:{pattern ?:{optional {inherits ?:tokens}}}
+                       ?body:tokens
+                     }
+
+    || Annotation tokens
+    def class-annotation-codes = {{Array-of CurlSource}}
+    def field-annotation-codes = {{Array-of CurlSource}}
+    def constructor-annotation-codes = {{Array-of CurlSource}}
+    def method-annotation-codes = {{Array-of CurlSource}}
+
+    || FIXME: static initializer is unneeded!? 
+    || static initializer tokens
+    def static-codes = {{Array-of CurlSource}}
+
+    || rest tokens
+    def rest-codes = {{Array-of CurlSource}}
+
+    {for v in body do
+        {syntax-switch v
+         case {pattern {@?annotation:tokens}} do
+            || class annotations
+            {class-annotation-codes.append
+                {expand-template
+                    {?class-name.class-env.annotate-class {?annotation}}
+                }
+            }
+         case {pattern
+                  {field
+                      ?modifier:tokens
+                      ?field-name:identifier
+                      :
+                      ?field-type:identifier
+                      ?field-value:{optional = ?:expression}
+                      ?field-body:tokens
+                  }
+              }
+         do
+            || field annotations
+												def field-key = {(v asa Prefix).contents.parse-head BOS}
+            def field-codes = {{Array-of CurlSource}}
+            {for f in field-body do
+                {syntax-switch f
+                 case {pattern {@?annotation:tokens}} do
+                    def name = {Literal {field-name.get-text}}
+                    {field-annotation-codes.append
+                        {expand-template
+                            {?class-name.class-env.annotate-field ?name, {?annotation}}
+                        }
+                    }
+                 else
+                    || TODO: throw Exception
+                }
+            }
+            {rest-codes.append
+                {expand-template
+                    {?field-key ?modifier ?field-name:?field-type ?field-value}
+                }
+            }
+         case {pattern
+                  {constructor
+                      ?modifier:tokens
+                      {?constructor-name:identifier
+                          ?args:tokens
+                      }
+                      ?constructor-body:tokens
+                  }
+              }
+         do
+            || constructor annotations
+            def constructor-key = {(v asa Prefix).contents.parse-head BOS}
+            def constructor-codes = {{Array-of CurlSource}}
+            {for c in constructor-body do
+                {syntax-switch c
+                 case {pattern {@?annotation:tokens}} do
+                    def name = {Literal {constructor-name.get-text}}
+                    {constructor-annotation-codes.append
+                        {expand-template
+                            {?class-name.class-env.annotate-constructor ?name, {?annotation}}
+                        }
+                    }
+                 else
+                    {constructor-codes.append c}
+                }
+            }
+            {rest-codes.append
+                {expand-template
+                    {?constructor-key ?modifier {?constructor-name ?args}
+                        ?constructor-codes
+                    }
+                }
+            }
+         case {pattern
+                  {method ?modifier:tokens
+                      {?method-name:identifier
+                          ?args:tokens
+                      }:?return-value:expression
+                      ?method-body:tokens
+                  }
+              }
+         do
+            || method annotations
+            def method-key = {(v asa Prefix).contents.parse-head BOS}
+            def method-codes = {{Array-of CurlSource}}
+            def name = {Literal {method-name.get-text}}
+            {for m in method-body do
+                {syntax-switch m
+                 case {pattern {@?annotation:tokens}} do
+                    {method-annotation-codes.append
+                        {expand-template
+                            {?class-name.class-env.annotate-method ?name, {?annotation}}
+                        }
+                    }
+                 else
+                    {method-codes.append m}
+                }
+            }
+            {rest-codes.append
+                {expand-template
+                    {?method-key ?modifier {?method-name ?args}:?return-value
+                        {try
+                            || TODO：引数もセット
+                            {?class-name.class-env.do-before-advice ?name}
+                            ?method-codes
+                         catch e:Exception do
+                            {try
+                                || TODO：引数もセット
+                                {?class-name.class-env.do-after-throwing-advice e, ?name}
+                                {unreachable}
+                             catch e:Exception do
+                                {throw e}
+                            }
+                         finally
+                            || TODO：引数もセット
+                            {?class-name.class-env.do-after-returning-advice ?name}
+                        }
+                    }
+                }
+            }
+         case {pattern {static ?static-body:tokens}} do
+            || static initializer block
+            {static-codes.append {expand-template ?static-body}}
+         else
+            || TODO: getter/setter/factory
+            {rest-codes.append v}
+        }
+    }
+    {def out =
+        {expand-template
+            {define-class ?access ?class-name ?superclasses
+              def public class-env = {ClassEnv ?class-name}
+              ?rest-codes
+              {define-proc {static}:void ?static-codes}
+            }
+            {do
+                ?class-annotation-codes
+                ?field-annotation-codes
+                ?constructor-annotation-codes
+                ?method-annotation-codes
+            }
+            {do {?class-name.static}}
+        }
+    }
+||--    {output {out.get-text}} || デバッグ
+    {return out}
+}
+
+
+||
+|| AOPイベント
+||
+
+|| AdviceEvent
+{define-class public open AdviceEvent {inherits Event}
+  field public-get pointcut:String
+  field public-get arguments:Arguments
+  {constructor public {default pointcut:String, ...}
+    set self.pointcut = pointcut
+    set self.arguments = {Arguments ...}
+  }
+}
+
+|| BeforeAdviceEvent *メソッド内の処理が実行される前に発生するイベント
+{define-class public final BeforeAdviceEvent {inherits AdviceEvent}
+  {constructor public {default pointcut:String, ...}
+    {construct-super pointcut, ...}
+  }
+}
+
+|| AfterReturningAdviceEvent　*メソッド内の処理が実行された後に発生するイベント
+{define-class public final AfterReturningAdviceEvent {inherits AdviceEvent}
+  {constructor public {default pointcut:String, ...}
+    {construct-super pointcut, ...}
+  }
+}
+
+|| AfterThrowingAdviceEvent　*メソッド内で例外が発生した際に発生するイベント
+{define-class public final AfterThrowingAdviceEvent {inherits AdviceEvent}
+  field public-get exception:Exception
+  {constructor public {default exception:Exception, pointcut:String, ...}
+    {construct-super pointcut, ...}
+    set self.exception = exception
+  }
+}
+
+|| AdviceEventTarget (package)
+{define-class package final AdviceEventTarget {inherits EventTarget}
+  {constructor package {default ...:EventHandler}
+    {construct-super ...}
+  }
+}
+
+|| AdviceException
+{define-class public final AdviceException {inherits Exception}
+  {constructor public {default message:String}
+    {construct-super message}
+  }
+}
+
+
+||
+|| Env classes
+||  *define-extended-classで作成されたクラスにはclass-envフィールドが付与されます。
+||
+
+|| ClassEnv
+{define-class public final ClassEnv
+
+  || class envs
+  field public-get type:ClassType
+  field public-get annotations:{Set-of Annotation}
+
+  || field, constructor, method envs
+  field public-get field-envs:{HashTable-of String, FieldEnv}
+  field public-get constructor-envs:{HashTable-of String, ConstructorEnv}
+  field public-get method-envs:{HashTable-of String, MethodEnv}
+
+  || AOP (AdviceEventHandlerとメソッド名のHashTable。メソッド名には正規表現が利用可能。)
+  field private advice-event-handlers:{HashTable-of EventHandler, String}
+  
+  {constructor public {default type:ClassType}
+    set self.type = type
+    set self.annotations = {{Set-of Annotation}}
+    set self.field-envs = {{HashTable-of String, FieldEnv}}
+    set self.constructor-envs = {{HashTable-of String, ConstructorEnv}}
+    set self.method-envs = {{HashTable-of String, MethodEnv}}
+
+    set self.advice-event-handlers = {{HashTable-of EventHandler, String}}
+  }
+
+  || マークするメソッド群
+  {method public {annotate-class annotation:Annotation}:void
+    || do AnnotatedEvent
+    {annotation.event-target.handle-event {AnnotatedEvent self.type}}
+    {self.annotations.insert annotation}
+  }
+  {method public {annotate-field name:String, annotation:Annotation}:void
+    def envs = self.field-envs
+    set envs[name] = {FieldEnv {unchecked-non-null {self.type.get-field name}}}
+    {envs[name].annotate annotation}
+  }
+  {method public {annotate-constructor name:String, annotation:Annotation}:void
+    def envs = self.constructor-envs
+    set envs[name] = {ConstructorEnv {unchecked-non-null {self.type.get-constructor name}}}
+    {envs[name].annotate annotation}
+  }
+  {method public {annotate-method name:String, annotation:Annotation}:void
+    def envs = self.method-envs
+    set envs[name] = {MethodEnv {unchecked-non-null {self.type.get-method name}}}
+    {envs[name].annotate annotation}
+  }
+
+  || register AdviceEvent handler
+  ||  ポイントカット名（=メソッド名）省略時は、当クラスのすべてのメソッドに対して有効となる。（= "*"）
+  {method public {register-advice
+                     advice:EventHandler,
+                     pointcut:String = "*"
+                 }:void
+    {if not {advice.event-class.subtype-of? AdviceEvent} then
+        {throw {AdviceException "AdviceEventクラス以外は登録できません。"}}
+    }
+    {self.advice-event-handlers.set advice, pointcut}
+  }
+
+  || Advice(Interceptor)の実行
+  {method public {do-before-advice
+                     pointcut:String,
+                     ...
+                 }:void
+    {{self.filter-advice
+         pointcut,
+         BeforeAdviceEvent
+     }.handle-event {BeforeAdviceEvent pointcut, ...}}
+  }
+  {method public {do-after-returning-advice
+                     pointcut:String,
+                     ...
+                 }:void
+    {{self.filter-advice
+         pointcut,
+         AfterReturningAdviceEvent
+     }.handle-event {AfterReturningAdviceEvent pointcut, ...}}
+  }
+  {method public {do-after-throwing-advice
+                     exception:Exception,
+                     pointcut:String,
+                     ...
+                 }:void
+    def (event-target, size) =
+        {self.filter-advice
+            pointcut,
+            AfterThrowingAdviceEvent
+        }
+    {if size == 0 then
+        {throw exception}
+    }
+    {event-target.handle-event {AfterThrowingAdviceEvent exception, pointcut, ...}}
+  }
+  {method private {filter-advice
+                      pointcut:String,
+                      event:ClassType
+                  }:(EventTarget, int)
+    def advices =
+        {{self.advice-event-handlers.filter-clone
+             {proc {pc:String}:bool
+                 {return {regexp-match? pc, pointcut}}
+             }
+         }.filter-keys-clone
+            {proc {eh:EventHandler}:bool
+                {return eh.event-class == event}
+            }
+        }
+    def event-target = {AdviceEventTarget}
+    {for target key event-handler in advices do
+        {event-target.add-event-handler event-handler}
+    }
+    {return (event-target, advices.size)}
+  }
+}
+
+|| FieldEnv
+{define-class public final FieldEnv
+
+  field public-get field:Field
+  field public-get annotations:{Set-of Annotation}
+  
+  {constructor public {default field:Field}
+    set self.field = field
+    set self.annotations = {{Set-of Annotation}}
+  }
+
+  {method public {annotate annotation:Annotation}:void
+    || do AnnotatedEvent
+    {annotation.event-target.handle-event {AnnotatedEvent self.field}}
+    {self.annotations.insert annotation}
+  }
+}
+
+|| ConstructorEnv
+{define-class public final ConstructorEnv
+
+  field public-get constructor:Constructor
+  field public-get annotations:{Set-of Annotation}
+  
+  {constructor public {default constructor:Constructor}
+    set self.constructor = constructor
+    set self.annotations = {{Set-of Annotation}}
+  }
+
+  {method public {annotate annotation:Annotation}:void
+    || do AnnotatedEvent
+    {annotation.event-target.handle-event {AnnotatedEvent self.constructor}}
+    {self.annotations.insert annotation}
+  }
+}
+
+|| MethodEnv
+{define-class public final MethodEnv
+
+  field public-get method:Method
+  field public-get annotations:{Set-of Annotation}
+  
+  {constructor public {default method:Method}
+    set self.method = method
+    set self.annotations = {{Set-of Annotation}}
+  }
+
+  {method public {annotate annotation:Annotation}:void
+    || do AnnotatedEvent
+    {annotation.event-target.handle-event {AnnotatedEvent self.method}}
+    {self.annotations.insert annotation}
+  }
+}
+
+|| ClassEnvException
+{define-class public final ClassEnvException {inherits Exception}
+  {constructor public {default message:String}
+    {construct-super message}
+  }
+}
+
+
+||
+|| ClassEnv utils
+||
+
+|| get class-env from ClassType
+{define-proc package {get-class-env class:ClassType}:ClassEnv
+    {if-non-null class-env-var = {class.get-class-variable "class-env"} then
+        {return {class-env-var.get-value}}
+     else
+        {throw {ClassEnvException "'class-env'"}}
+    }
+}
+
+
+||
+|| Framework annotations (examples)
+||
+
+|| @Action
+||{define-class public final Action {inherits Annotation} }
+
+|| @Logic
+||{define-class public final Logic {inherits Annotation} }
+
+|| @ViewHelper
+||{define-class public final ViewHelper {inherits Annotation} }
+
+|| @ActionController
+||{define-class public final ActionController {inherits Annotation} }
+
+|| @Service
+{define-class public final Service {inherits Annotation}
+  {constructor public {default name:String, service-url:#Url = null}
+    {construct-super
+        {on e:AnnotatedEvent do
+            || The Service annotations is only ClassType.
+            def element-type = e.element-type asa ClassType
+            ||{output "Register service:" & name & " " & e.element-type}
+            ||{set-service name, e.type, scope = Scope.singleton} || GlobalなContainerにセット
+        }
+    }
+  }
+}
+
+|| @TestStub or @Mock
+||{define-class public final TestStub {inherits Annotation} }
+
+
+||
+|| AOPアノテーション
+||
+
+|| @Aspect
+{define-class public final Aspect {inherits Annotation}
+  {constructor public {default
+                          pointcut:String = "*",
+                          ...:EventHandler || advices' EventHandler
+                      }
+    def advices = {Arguments ...}
+    {construct-super
+        {on e:AnnotatedEvent do
+            || The Advice annotation is only ClassType.
+            def class-env = {get-class-env (e.element-type asa ClassType)}
+            {for advice in advices do
+                {class-env.register-advice advice, pointcut = pointcut}
+            }
+        }
+    }
+  }
+}
+
+
+||
+|| Validateアノテーション
+||
+|| {@Length min=0, max=100}   || フィールドへセットできるサイズを制限
+|| {@Email}, {@Telno} ....    || セットできるフォーマットを制限
+|| {@AllowedType String, int} || フィールドがany型の場合、セットできる型を限定
+|| {@Validate {proc {field:any}:void}} || 任意の制約　 ...etc
+
+
+||
+|| DIアノテーション
+||
+|| {@Component}, {@Service}, {@Repository}, {@Scope} || DIするオブジェクト
+|| {@Autowired}, {@Resource}, {@Inject}              || DIされるフィールド
+
+
+||
+|| Otherアノテーション
+||
+|| {@Scope}         || 当クラスはシングルトン or アプレット内、アプレット間、ローカルという単位で管理される
+|| {@PostConstruct} || オブジェクト生成時（コンストラクタ実行時）、同時に実行されるメソッド
+|| {@PreDestroy}    || オブジェクト破棄時、実行されるメソッド
+|| {@PreSuspend}, {@PreExit} || register-exit-proc/register-suspend-proc実行時
+|| {@TraceInterceptor}, {@TraceAdvice}　|| AOP
+|| {@Forward}, {@Redirect} || メソッドを違うメソッドの処理に飛ばす
+|| {@Skip}, {@DoNothing} || メソッド内を実行しないようにする（何もしない）
+
+
+|| define-annotation macro

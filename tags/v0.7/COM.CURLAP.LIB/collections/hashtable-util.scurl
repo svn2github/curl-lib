@@ -1,0 +1,231 @@
+||| Copyright (C) 1998-2008, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Izumi Kashiwagi, Hitoshi Okada, Yoshitaka Fukuta
+|||
+
+{import * from CURL.LANGUAGE.REFLECTION}
+
+{doc-next
+    {purpose HashTable のユーティリティ}
+}
+{define-class public open HashTableUtil
+
+  {doc-next
+    {purpose HashTable に含まれるキーと要素のペアが一致するかどうかを確認します。}
+    {parameter h1, 対象のハッシュテーブル}
+    {parameter h2, 対象のハッシュテーブル}
+    {return-vals 全て一致した場合は true を返します。}
+  }
+  {define-proc public inline {equals? h1:any, h2:any}:bool
+    {if h1 == h2 then
+        {return true}
+    }
+    {if h1.size != h2.size then
+        {return false}
+    }
+||--    {for tag = outer, val1 key k1 in h1 do
+||--        {for val2 key k2 in h2 do
+||--            {if k1 == k2 and val1 == val2 then
+||--                {break tag = outer}
+||--            }
+||--        }
+||--        {return false}
+||--    }
+    {for v1 key k1 in h1 do
+        def (v2:any, found?:bool) = {h2.get-if-exists k1}
+        {if not found? or v2 != v1 then
+            {return false}
+        }
+    }
+    {return true}
+  }
+
+  {doc-next
+    {purpose h1 に h2 を追加します。}
+    {parameter h1, 対象のハッシュテーブル。このハッシュテーブルにキーと値が追加されます。}
+    {parameter h2, 対象のハッシュテーブル。このハッシュテーブルのキーと値が h1 に追加されます。}
+  }
+  {define-proc public inline {concat h1:any, h2:any}:void
+    {for val key k in h2 do
+        {h1.set k, val}
+    }
+  }
+
+  {doc-next
+    {purpose h1 と h2 のキーと要素を持つコレクションのクローンを返します。}
+    {parameter h1, 対象のハッシュテーブル。}
+    {parameter h2, 対象のハッシュテーブル。}
+    {return-vals h1 と h2 のキーと要素を持つコレクションのクローンが返されます。}
+  }
+  {define-proc public inline {concat-clone h1:any, h2:any}:any
+    def v = {h1.clone}
+    {for val key k in h2 do
+        {v.set k, val}
+    }
+    {return v}
+  }
+
+  || TODO: HashTableの値をオブジェクトのpublicなフィールド及びsetterの値にセットする。
+  ||   NOTE: HashTableのキー値とフィールド名が一致した場合にセット
+||--  {define-proc public inline {to-object
+||--                                 from-hash:{HashTable-of String, any},
+||--                                 to-obj:any, || NOTE: 既にnewされたオブジェクト（コンストラクタの引数も渡さないといけないため、ClassTypeではない。）
+||--                                 search-superclasses?:bool = true,
+||--                                 nested-value-proc:{proc-type {type:Type}:bool} =
+||--                                     {proc {type:Type}:bool
+||--                                         {return
+||--                                             (not type.parameterized-class?)
+||--                                             and (not {type.subtype-of? Graphic})
+||--                                             and (not type == DateTime)
+||--                                         }
+||--                                     }
+||--                             }:void
+||--            }
+||--        }
+||--    }
+||--    {return result}
+||--  }
+  
+  {doc-next
+    {purpose オブジェクトの public なフィールド名及び getter 名と値を HashTable に変換します。}
+    {parameter obj, 対象のオブジェクト。}
+    {parameter search-superclasses?, スーパークラスも変換対象とするかどうか。}
+    {parameter nested-value-proc,
+        値がクラスの場合にそのクラスも変換対象とするかどうかを判断するプロシージャ。
+    }
+    {return-vals
+        オブジェクトのフィールド名及び getter 名をキーとし、それらの値を格納した {docref HashTable-of} を返します。
+    }
+  }
+  {define-proc public inline {from-object
+                                 obj:any,
+                                 search-superclasses?:bool = true,
+                                 nested-value-proc:{proc-type {type:Type}:bool} =
+                                     {proc {type:Type}:bool
+                                         {return
+                                             (not type.parameterized-class?)
+                                             and (not {type.subtype-of? Graphic})
+                                             and (not type == DateTime)
+                                         }
+                                     }
+                             }:{HashTable-of String, any}
+    def type = {type-of obj} asa ClassType
+    def members =
+        {type.get-members　
+            search-superclasses? = search-superclasses?,
+            filter = ClassMember.get-property-filter
+        }
+    def result = {{HashTable-of String, any}}
+    {for member in members do
+        {if member.public? then
+            def name = member.name
+            def value = 
+                {type-switch member
+                 case v:Field do
+                    {v.get-value obj}
+                 case v:Getter do
+                    {v.get-value obj}
+                 else
+                    {unreachable}
+                }
+            def value-type = {type-of value}
+            {result.set
+                name,
+                {if value-type.class? and
+                    {nested-value-proc value-type}
+                 then
+                    {HashTableUtil.from-object value}
+                 else
+                    value
+                }
+            }
+        }
+    }
+    {return result}
+  }
+
+  {doc-next
+    {purpose {docref HashTable-of} のキーと要素を出力します。}
+    {parameter hashtable,
+        出力したいハッシュテーブル。
+        {docref HashTable-of} でない場合は、キーと要素は出力されません。ｌ、
+    }
+  }
+  {define-proc public inline {output hashtable:any}:void
+    {if {HashTableUtil.isa-HashTable? hashtable} then
+        {for v key k in hashtable do
+            {output k & "=" & v}
+        }
+    }
+  }
+
+  {doc-next
+    {purpose {docref HashTable-of} か否かを判定します。}
+    {parameter v, 判定する対象。}
+    {parameter parameter-type, 判定対象のパラメータの型。}
+    {return-vals
+        {docref HashTable-of} の場合は、true を返します。
+    }
+  }
+  {define-proc public inline {isa-HashTable? 
+                                 v:any,
+                                 parameter-type:#Type = null
+                             }:bool
+    {return
+        {type-switch {type-of v}
+         case type:ClassType do
+            {{this-class}.subtype-of-HashTable? type}
+         else
+            false
+        }
+    }
+  }
+
+  {doc-next
+    {purpose {docref ParameterizedType} か否かを判定します。}
+    {parameter v, 判定する対象。}
+    {parameter parameter-type, 判定対象のパラメータの型。}
+    {return-vals {docref ParameterizedType} の場合、true を返します。}
+  }
+  {define-proc private {is-ParameterizedType?
+                           v:any,
+                           parameter-type:#Type = null
+                       }:bool
+    def t = {type-of v}
+    {if not t.parameterized-class? then
+        {return false}
+    }
+    {if-non-null at = parameter-type then
+        {if t.positional-type-parameters[0].parameter != at then
+            {return false}
+        }
+    }
+    {return true}
+  }
+
+  || 'type' が具象 'HashTable-of' のサブタイプかどうか判定します。
+  {define-proc private {subtype-of-HashTable? type:ClassType}:bool
+    {if type.template == HashTable-of then
+        {return true}
+    }
+    {for base in type.direct-superclasses do
+        {if {{this-class}.subtype-of-HashTable? base} then
+            {return true}
+        }
+    }
+    {return false}
+  }
+}

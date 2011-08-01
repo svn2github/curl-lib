@@ -1,0 +1,220 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from CURL.LANGUAGE.REGEXP}
+
+{doc-next
+    {purpose {docref Directory}のユーティリティ}
+}
+{define-class public open DirectoryUtil
+  
+  {doc-next
+    {purpose ファイル及びディレクトリの検索をします。}
+    {parameter root-dir, 検索開始のルートディレクトリ}
+    {parameter equal-proc, このプロシージャの戻り値がtrueとなるもののUrlを検索する。}
+    {parameter recurse?, 再帰的に検索するか否か}
+    {parameter file?, 検索対象にファイルを含むか否か}
+    {parameter directory?, 検索対象にディレクトリを含むか否か}
+    {return-vals 検索にヒットした結果のUrl}
+    {details
+        以下はサンプルです。（ある日付以前のファイルを検索）
+        {curl-code
+            def dt = {DateTime year=2009, month=1, day=1}
+            def result =
+                {DirectoryUtil.search
+                    {url "dir"}, || root directory
+                    {proc {u:Url}:bool
+                        def file = {u.resolve}
+                        {if file isa File then
+                            {if-non-null la = file.when-last-accessed then
+                                {return {dt.compare la} > 0}
+                            }
+                        }
+                        {return false}
+                    },
+                    recurse? = true,
+                    directory? = false
+                }
+        }
+    }
+    {notes file?とdirectory?の両方をfalseにした場合は、検索結果が当然ゼロとなります。}
+  }
+  {define-proc public inline {search
+                                 root-dir:Url,
+                                 equality-proc:{proc-type {Url}:bool},
+                                 recurse?:bool = false,
+                                 file?:bool = true,
+                                 directory?:bool = true
+                             }:{Array-of Url}
+    {if not file? and not directory? then
+        {return {{Array-of Url}}}
+    }
+    
+    def dir = {root-dir.resolve}
+    {if dir isa Directory then
+        def results = {{Array-of Url}}
+        {for v key k in dir do
+            def u = v.url
+            {if v isa Directory and recurse? then
+                {if directory? and {equality-proc u} then
+                    {results.append u}
+                }
+                || recursivly search
+                {results.concat
+                    {DirectoryUtil.search
+                        u,
+                        equality-proc,
+                        recurse? = recurse?,
+                        file? = file?,
+                        directory? = directory?
+                    }
+                }
+             elseif v isa File then
+                {if file? and {equality-proc u} then
+                    {results.append u}
+                }
+             else
+                {unreachable}
+            }
+        }
+        {return results}
+     else
+        {error "指定したルートは、ディレクトリではありません。"}
+    }
+  }
+
+  {doc-next
+    {purpose ファイル及びディレクトリの検索をします。}
+    {parameter root-dir, 検索開始のルートディレクトリ}
+    {parameter name, この値と一致するUrlを検索します。}
+    {parameter recurse?, 再帰的に検索するか否か}
+    {parameter file?, 検索対象にファイルを含むか否か}
+    {parameter directory?, 検索対象にディレクトリを含むか否か}
+    {return-vals 検索にヒットした結果のUrl}
+    {notes file?とdirectory?の両方をfalseにした場合は、検索結果が当然ゼロとなります。}
+  }
+  {define-proc public inline {search-by-name
+                                 root-dir:Url,
+                                 name:String,
+                                 recurse?:bool = false,
+                                 file?:bool = true,
+                                 directory?:bool = true
+                             }:{Array-of Url}
+    {return
+        {DirectoryUtil.search
+            root-dir,
+            {proc {url:Url}:bool
+                {return url.filename == name}
+            },
+            recurse? = recurse?,
+            file? = file?,
+            directory? = directory?
+        }
+    }
+  }
+
+  {doc-next
+    {purpose ファイル及びディレクトリの検索をします。}
+    {parameter root-dir, 検索開始のルートディレクトリ}
+    {parameter prefix-name, この値のプレフィックスと一致するUrlを検索します。}
+    {parameter recurse?, 再帰的に検索するか否か}
+    {parameter file?, 検索対象にファイルを含むか否か}
+    {parameter directory?, 検索対象にディレクトリを含むか否か}
+    {return-vals 検索にヒットした結果のUrl}
+    {notes file?とdirectory?の両方をfalseにした場合は、検索結果が当然ゼロとなります。}
+  }
+  {define-proc public inline {search-by-prefix
+                                 root-dir:Url,
+                                 prefix-name:String,
+                                 recurse?:bool = false,
+                                 file?:bool = true,
+                                 directory?:bool = true
+                             }:{Array-of Url}
+    {return
+        {DirectoryUtil.search
+            root-dir,
+            {proc {url:Url}:bool
+                {return {url.filename.prefix? prefix-name}}
+            },
+            recurse? = recurse?,
+            file? = file?,
+            directory? = directory?
+        }
+    }
+  }
+
+  {doc-next
+    {purpose ファイル及びディレクトリの検索をします。}
+    {parameter root-dir, 検索開始のルートディレクトリ}
+    {parameter suffix-name, この値のサフィックスと一致するUrlを検索します。}
+    {parameter recurse?, 再帰的に検索するか否か}
+    {parameter file?, 検索対象にファイルを含むか否か}
+    {parameter directory?, 検索対象にディレクトリを含むか否か}
+    {return-vals 検索にヒットした結果のUrl}
+    {notes file?とdirectory?の両方をfalseにした場合は、検索結果が当然ゼロとなります。}
+  }
+  {define-proc public inline {search-by-suffix
+                                 root-dir:Url,
+                                 suffix-name:String,
+                                 recurse?:bool = false,
+                                 file?:bool = true,
+                                 directory?:bool = true
+                             }:{Array-of Url}
+    {return
+        {DirectoryUtil.search
+            root-dir,
+            {proc {url:Url}:bool
+                {return {url.filename.suffix? suffix-name}}
+            },
+            recurse? = recurse?,
+            file? = file?,
+            directory? = directory?
+        }
+    }
+  }
+
+  {doc-next
+    {purpose ファイル及びディレクトリの検索をします。}
+    {parameter root-dir, 検索開始のルートディレクトリ}
+    {parameter regexp, この正規表現と一致するUrlを検索します。}
+    {parameter recurse?, 再帰的に検索するか否か}
+    {parameter file?, 検索対象にファイルを含むか否か}
+    {parameter directory?, 検索対象にディレクトリを含むか否か}
+    {return-vals 検索にヒットした結果のUrl}
+    {notes file?とdirectory?の両方をfalseにした場合は、検索結果が当然ゼロとなります。}
+  }
+  {define-proc public inline {search-by-regexp
+                                 root-dir:Url,
+                                 regexp:String,
+                                 recurse?:bool = false,
+                                 file?:bool = true,
+                                 directory?:bool = true
+                             }:{Array-of Url}
+    {return
+        {DirectoryUtil.search
+            root-dir,
+            {proc {url:Url}:bool
+                {return {regexp-match? regexp, url.filename}}
+            },
+            recurse? = recurse?,
+            file? = file?,
+            directory? = directory?
+        }
+    }
+  }
+}

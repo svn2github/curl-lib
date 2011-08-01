@@ -1,0 +1,152 @@
+||| Copyright (C) 1998-2010, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Zhang Ucai, Hitoshi Okada
+|||
+
+|| HMAC (since 0.7)
+
+|| HMAC-SHA-1
+{doc-next
+    {purpose HMAC-SHA-1}
+    {parameter key, 秘密鍵(StringもしくはByteVecを指定できます。)}
+    {parameter data, データ(StringもしくはByteVecを指定できます。)}
+    {parameter block-size, ブロックサイズ}
+}
+{define-proc public inline {hmac-sha-1
+                               key:any,
+                               data:any
+                           }:String
+    {return
+        {hmac
+            {string-to-bytes key}, 
+            {string-to-bytes data},
+            hash-name = "SHA-1"
+        }
+    }
+}
+
+{doc-next
+    {purpose HMAC-MD5}
+    {parameter key, 秘密鍵(StringもしくはByteVecを指定できます。)}
+    {parameter data, データ(StringもしくはByteVecを指定できます。)}
+    {parameter block-size, ブロックサイズ}
+}
+
+|| HMAC-MD5
+{define-proc public inline {hmac-md5
+                               key:any,
+                               data:any
+                           }:String
+    {return
+        {hmac
+            {string-to-bytes key}, 
+            {string-to-bytes data},
+            hash-name = "MD5"
+        }
+    }
+}
+
+|| HMAC (Non public)
+||--{doc-next
+||--    {purpose HMAC(Keyed-Hashing for Message Authentication code)}
+||--    {parameter key, 秘密鍵}
+||--    {parameter data, データ}
+||--    {parameter block-size, ブロックサイズ}
+||--    {parameter hash-name, ハッシュ関数名(SHA-1, MD5など)}
+||--    {details
+||--        HMACは、MAC(Message Authentication Code)の一つで、
+||--        ハッシュ関数を使って、秘密鍵と組み合わせて計算するMACです。
+||--    }
+||--}
+{define-proc {hmac
+                 key:ByteVec,
+                 data:ByteVec,
+                 hash-name:String = "SHA-1"
+             }:String
+    def p-update = 
+        {proc {digest:MsgDigester, bytes:ByteVec}:void
+            {for b in bytes do
+                {digest.add-byte b}
+            }
+        }
+
+    def (md-inner, md-outer, block-size) = 
+        {switch hash-name
+         case "SHA-1" do
+            || Digest size = 20 (= SHA-1-Digest.size * 4)
+            ({SHA-1-Digester}, {SHA-1-Digester}, 64)
+         case "MD5" do
+            || Digest size = 16 (= MD5-Digest.size * 4)
+            ({MD5-Digester}, {MD5-Digester}, 64)
+         else
+            {error "Not support MsgDigester."}
+        }
+
+    def ipad = {ByteVec.from-size block-size, 0x36}
+    def opad = {ByteVec.from-size block-size, 0x5c}
+    def k0 = {ByteVec.from-size block-size, 0}
+    {for k key i in key do
+        set k0[i] = k || array copy
+    }
+    {for i = 0 below block-size do
+        set ipad[i] = {bit-xor ipad[i], k0[i]} asa byte
+        set opad[i] = {bit-xor opad[i], k0[i]} asa byte
+    }
+    {md-inner.start}
+    {p-update md-inner, ipad}
+    {p-update md-inner, data}
+
+    def inner-digest =
+        {md-inner.finish} asa {switch hash-name
+                               case "SHA-1" do
+                                  SHA-1-Digest
+                               case "MD5" do
+                                  MD5-Digest
+                               else
+                                  {unreachable}
+                              }
+    def inner = {ByteVec max-size = {inner-digest.size} * 4}
+    {for b in inner-digest do
+        {inner.append ({bit-srl b, 24} asa byte)}
+        {inner.append ({bit-srl b, 16} asa byte)}
+        {inner.append ({bit-srl b, 8} asa byte)}
+        {inner.append ({bit-srl b, 0} asa byte)}
+    }
+    
+    {md-outer.start}
+    {p-update md-outer, opad}
+    {p-update md-outer, inner}
+    {return {format "%s", {md-outer.finish}}}
+}
+
+|| string to bytes
+{define-proc {string-to-bytes from:any}:ByteVec
+    {return
+        {type-switch from
+         case str:String do
+            def len = from.size
+            def bytes = {ByteVec max-size = len}
+            {for i = 0 below len do
+                {bytes.append {from.get i} asa byte}
+            }
+            bytes
+         case bytes:ByteVec do
+            bytes
+         else
+            {error "引数にはStringもしくはByteVecを指定してください。"}
+        }
+    }
+}
