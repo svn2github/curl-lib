@@ -15,8 +15,8 @@
 ||| @authors Hitoshi Okada
 |||
 
-{curl 6.0, 7.0 package}
-{package COM.CURLAP.LIB.CRYPTO}
+{curl 6.0, 7.0, 8.0 package}
+{package COM.CURL.LIB.CRYPTO}
 
 {include
     "common-key-encrypt.scurl",

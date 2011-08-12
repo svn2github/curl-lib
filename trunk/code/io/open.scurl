@@ -17,7 +17,7 @@
 |||
 
 {import SerializeInputStream from CURL.IO.SERIALIZE}
-{import * from COM.CURLAP.LIB.DATA-ACCESS}
+{import * from COM.CURL.LIB.DATA-ACCESS}
 
 {doc-next
     {purpose ファイルからテキストデータ（{docref String}）を取り出します。}

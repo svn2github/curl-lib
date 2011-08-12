@@ -15,15 +15,15 @@
 |||
 ||| @authors Yoshitaka Fukuta
 |||
-{curl 6.0, 7.0 package}
+{curl 6.0, 7.0, 8.0 package}
 {curl-file-attributes character-encoding = "utf8"}
-{package COM.CURLAP.LIB.MESSAGES,
+{package COM.CURL.LIB.MESSAGES,
     {compiler-directives careful? = true}
 }
 
 {doc
     type = package,
-    COM.CURLAP.LIB.MESSAGES
+    COM.CURL.LIB.MESSAGES
     {purpose メッセージ管理を行う機能を提供します。}
 }
 

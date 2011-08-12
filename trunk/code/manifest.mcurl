@@ -17,67 +17,68 @@
 |||          Mitsunori Mine, Hiroshi Miyazaki
 |||
 
-{curl 6.0, 7.0 manifest}
+{curl 6.0, 7.0, 8.0 manifest}
 {curl-file-attributes character-encoding = "utf8"}
-{manifest COM.CURLAP.LIB}
+{manifest COM.CURL.LIB,
+    version = "0.8"}
 
-{component package COM.CURLAP.LIB.LANG,
+{component package COM.CURL.LIB.LANG,
     location = "lang/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.COLLECTIONS,
+{component package COM.CURL.LIB.COLLECTIONS,
     location = "collections/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.DATA-ACCESS,
+{component package COM.CURL.LIB.DATA-ACCESS,
     location = "data-access/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.IO,
+{component package COM.CURL.LIB.IO,
     location = "io/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.CRYPTO,
+{component package COM.CURL.LIB.CRYPTO,
     location = "crypto/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.ENVIRONMENT,
+{component package COM.CURL.LIB.ENVIRONMENT,
     location = "environment/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.UI,
+{component package COM.CURL.LIB.UI,
     location = "ui/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.LOGGING,
+{component package COM.CURL.LIB.LOGGING,
     location = "logging/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.CACHING,
+{component package COM.CURL.LIB.CACHING,
     location = "caching/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.JAPAN,
+{component package COM.CURL.LIB.JAPAN,
     location = "japan/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.UTIL,
+{component package COM.CURL.LIB.UTIL,
     location = "util/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.MISC,
+{component package COM.CURL.LIB.MISC,
     location = "misc/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.MATH,
+{component package COM.CURL.LIB.MATH,
     location = "math/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.CODEC,
+{component package COM.CURL.LIB.CODEC,
     location = "codec/load.scurl"
 }
 
-{component package COM.CURLAP.LIB.MESSAGES,
+{component package COM.CURL.LIB.MESSAGES,
     location = "messages/load.scurl"
 }
 
@@ -85,3 +86,10 @@
     location = {url "environment/win32wmi.dll"}    
 }
 
+{component file classic-project.cprj,
+    location = "classic-project.cprj"
+}
+
+{component file project.cprj,
+    location = "project.cprj"
+}

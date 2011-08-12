@@ -17,9 +17,9 @@
 ||| @authors Jun Takamatsu, Hitoshi Okada
 |||
 
-{import * from COM.CURLAP.LIB.JAPAN}
+{import * from COM.CURL.LIB.JAPAN}
 
-{TestSuite "COM.CURLAP.LIB.JAPAN",
+{TestSuite "COM.CURL.LIB.JAPAN",
     {test-case "postal-code",
         def pcs = {PostalCodes.from-csv
                       {url "file/postal-data/13TOKYO.CSV"},

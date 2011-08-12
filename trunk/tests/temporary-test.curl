@@ -16,11 +16,11 @@
 ||| @authors Hitoshi Okada
 |||
 
-{curl 6.0 applet}
+{curl 6.0, 7.0, 8.0 applet}
 {applet manifest = "manifest.mcurl"}
 
-{import * from COM.CURLAP.LIB.LANG}
-{import * from COM.CURLAP.LIB.CODEC}
+{import * from COM.CURL.LIB.LANG}
+{import * from COM.CURL.LIB.CODEC}
 
 || TODO: should use macro (in COM.CURLAP.LIB.CODEC)
 {define-proc {hex v:int64}:String

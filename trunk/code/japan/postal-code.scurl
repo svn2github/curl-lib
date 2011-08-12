@@ -228,7 +228,7 @@
 
 || NOTE: usage
 ||--{do
-||--    || COM.CURLAP.COMMONS.CACHINGと組み合わせれば、
+||--    || COM.CURL.COMMONS.CACHINGと組み合わせれば、
 ||--    || Curlを再起動した際もCSVから読み込む必要はなくなる。
 ||--    def pcs = {PostalCodes.from-csv {url "A.csv"}, {url "B.csv"}}
 ||--    {if-non-null pc = {pcs.search-by-postal-code "1002000"} then

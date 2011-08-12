@@ -16,9 +16,9 @@
 ||| @authors Taketo Fujishiro
 |||
 
-{import * from COM.CURLAP.LIB.MATH}
+{import * from COM.CURL.LIB.MATH}
 
-{TestSuite "COM.CURLAP.LIB.MATH",
+{TestSuite "COM.CURL.LIB.MATH",
     {test-case "GCD",
         def (a,b,c) = (3,12,24)
         {TestCondition.assert

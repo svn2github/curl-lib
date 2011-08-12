@@ -16,10 +16,10 @@
 ||| @authors Hitoshi Okada
 |||
 
-{import * from COM.CURLAP.LIB.IO}
+{import * from COM.CURL.LIB.IO}
 {import * from CURL.DATA-ACCESS.BASE}
 
-{TestSuite "COM.CURLAP.LIB.IO",
+{TestSuite "COM.CURL.LIB.IO",
     {test-case "read/save/compress",
         def uncomp-file = {url "file/uncompress.txt"}
         def comp-file = {url "file/compress.gzip"}

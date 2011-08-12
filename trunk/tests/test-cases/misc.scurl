@@ -18,11 +18,11 @@
 
 {curl-file-attributes character-encoding = "utf8"}
 
-{import * from COM.CURLAP.LIB.MISC}
+{import * from COM.CURL.LIB.MISC}
 {import * from  CURL.GUI.DIALOGS}
 
 || TestCase
-{TestSuite "COM.CURLAP.LIB.MISC",
+{TestSuite "COM.CURL.LIB.MISC",
     {test-case "if-null",
         let v:#String = null
         def x:String = {if-null v then "null"}

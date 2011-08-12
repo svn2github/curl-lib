@@ -16,6 +16,8 @@
 ||| @authors wangwx
 |||
 
+{curl-file-attributes character-encoding = "utf8"}
+
 {doc-next {purpose 条件文（where句）}のクラスです。}
 {define-class public open Condition
 
@@ -396,7 +398,8 @@
   }
   
   {doc-next
-    {purpose 全てのパラメータのタイプがkey=valueの場合、戻り値をｔｒｕｅにする。} 
+    
+    {purpose 全てのパラメータのタイプが"key=value"の場合、戻り値をtrueにする。} 
   }
   {define-proc private inline {check-all-key-args? ...}:bool
     def args = {Arguments ...}

@@ -16,7 +16,7 @@
 ||| @authors Hitoshi Okada
 |||
 
-{import * from COM.CURLAP.LIB.MISC}
+{import * from COM.CURL.LIB.MISC}
 
 || ユーザ定義のアノテーション　（必ずAnnotationクラスを継承）
 {define-class public AnnotationA {inherits Annotation}
@@ -147,7 +147,7 @@
   }
 }
 
-{TestSuite "COM.CURLAP.LIB.LANG(Extra)",
+{TestSuite "COM.CURL.LIB.LANG(Extra)",
     {test-case "annotation",
         || Foo
         {TestCondition.assert Foo.class-env.type == Foo}

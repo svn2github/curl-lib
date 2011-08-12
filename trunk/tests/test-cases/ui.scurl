@@ -16,7 +16,7 @@
 ||| @authors D.TIAN
 |||
 
-{import * from COM.CURLAP.LIB.UI}
+{import * from COM.CURL.LIB.UI}
 {import * from CURL.ENGINE.APPLET}
 
 || test Foo
@@ -41,7 +41,7 @@
 
 
 || testcases
-{TestSuite "COM.CURLAP.LIB.UI-UTILS",
+{TestSuite "COM.CURL.LIB.UI-UTILS",
     {test-case "with-busy-view",
         def cb = {CommandButton}
         def v = {View cb}

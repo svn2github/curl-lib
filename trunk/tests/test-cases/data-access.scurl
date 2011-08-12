@@ -16,7 +16,7 @@
 ||| @authors Hitoshi Okada
 |||
 
-{import * from COM.CURLAP.LIB.DATA-ACCESS}
+{import * from COM.CURL.LIB.DATA-ACCESS}
 
 {define-class public Foo
   field public col1:int
@@ -30,7 +30,7 @@
   }
 }
 
-{TestSuite "COM.CURLAP.LIB.DATA-ACCESS",
+{TestSuite "COM.CURL.LIB.DATA-ACCESS",
     {test-case "create-table",
         def rs = {create-table 
                      col1 String   not null,
@@ -281,6 +281,6 @@
         {TestCondition.assert rs.size == 0}
     },
     {test-case "serialize recordset",
-        || see the save-record-set-to-url/read-record-set-from-url in COM.CURLAP.LIB.IO 
+        || see the save-record-set-to-url/read-record-set-from-url in COM.CURL.LIB.IO 
     }
 }

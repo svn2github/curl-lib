@@ -17,7 +17,7 @@
 |||
 
 {import SerializeOutputStream from CURL.IO.SERIALIZE}
-{import * from COM.CURLAP.LIB.DATA-ACCESS}
+{import * from COM.CURL.LIB.DATA-ACCESS}
 
 {doc-next
     {purpose テキストデータ（{docref StringInterface}）をファイルとして保存します。}

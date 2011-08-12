@@ -17,7 +17,7 @@
 |||
 
 || TODO: 要検討
-||--{import ClassUtil from COM.CURLAP.LIB.LANG}
+||--{import ClassUtil from COM.CURL.LIB.LANG}
 ||--
 ||--|| ResourceBundle
 ||--{define-class public abstract ResourceBundle

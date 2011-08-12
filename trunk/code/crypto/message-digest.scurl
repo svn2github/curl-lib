@@ -18,7 +18,7 @@
 |||
 
 {import * from CURL.CRYPTO.MSG-DIGEST}
-{import hex-encode from COM.CURLAP.LIB.CODEC}
+{import hex-encode from COM.CURL.LIB.CODEC}
 
 || TODO: SHA-256, SHA-384, SHA-512...etc
 {doc-next
@@ -66,6 +66,10 @@
 
   {method public {clone}:MD5-Digest
     {return {MD5-Digest {String self}}}
+  }
+  
+  {getter public final {oid}:String
+    {return {String self}}
   }
 }
 

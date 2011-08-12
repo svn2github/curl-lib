@@ -16,7 +16,7 @@
 ||| @authors Hitoshi Okada, xin.zhao
 |||
 
-{import * from COM.CURLAP.LIB.CRYPTO}
+{import * from COM.CURL.LIB.CRYPTO}
 
 {define-proc {string2bytes from:String}:ByteVec
     def len = from.size
@@ -27,7 +27,7 @@
     {return bytes}
 }
 
-{TestSuite "COM.CURLAP.LIB.CRYPTO",
+{TestSuite "COM.CURL.LIB.CRYPTO",
     {test-case "public key encrypt/decrypto",
         || TODO
     },

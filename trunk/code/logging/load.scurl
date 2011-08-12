@@ -16,10 +16,10 @@
 ||| @authors Izumi Kashiwagi
 |||
 
-{curl 6.0, 7.0 package}
-{package COM.CURLAP.LIB.LOGGING}
+{curl 6.0, 7.0, 8.0 package}
+{package COM.CURL.LIB.LOGGING}
 
-{import * from COM.CURLAP.LIB.IO}
+{import * from COM.CURL.LIB.IO}
 
 {include
     "log.scurl",

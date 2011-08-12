@@ -16,8 +16,8 @@
 ||| @authors Hitoshi Okada
 |||
 
-{import * from COM.CURLAP.LIB.COLLECTIONS}
-{import * from COM.CURLAP.LIB.IO}
+{import * from COM.CURL.LIB.COLLECTIONS}
+{import * from COM.CURL.LIB.IO}
 
 ||
 || Caching

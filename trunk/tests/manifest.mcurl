@@ -16,19 +16,25 @@
 ||| @authors Hitoshi Okada
 |||
 
-{curl 6.0, 7.0 manifest}
+{curl 6.0, 7.0, 8.0 manifest}
 {manifest TESTS,
     x-environment = "development"
 }
 
 || COM.CURLAP.COMMONS
-{delegate-to COM.CURLAP.LIB,
-    location = "../COM.CURLAP.LIB/manifest.mcurl"
+||--{delegate-to COM.CURLAP.LIB,
+||--    location = "../COM.CURLAP.LIB/manifest.mcurl"
+||--}
+{delegate-to COM.CURL.LIB,
+    location = "../code/manifest.mcurl"
 }
 
 || CDU
+||--{delegate-to COM.CURL.CDU,
+||--    location = "COM.CURL.CDU/manifest.mcurl"
+||--}
 {delegate-to COM.CURL.CDU,
-    location = "COM.CURL.CDU/manifest.mcurl"
+    location = "../lib/CDU/manifest.mcurl"
 }
 
 || run.curl
@@ -44,4 +50,10 @@
     location = "test-cases"
 }
 
+{component file classic-project.cprj,
+    location = "classic-project.cprj"
+}
 
+{component file project.cprj,
+    location = "project.cprj"
+}

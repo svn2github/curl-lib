@@ -16,9 +16,9 @@
 ||| @authors Hitoshi Okada, Mitsunori Mine, Hiroshi Miyazaki
 |||
 
-{import * from COM.CURLAP.LIB.ENVIRONMENT}
+{import * from COM.CURL.LIB.ENVIRONMENT}
 
-{TestSuite "COM.CURLAP.LIB.ENVIRONMENT",
+{TestSuite "COM.CURL.LIB.ENVIRONMENT",
     || environ-switch for switching test stub and etc
     {test-case "env switch",
         let env:#String = null

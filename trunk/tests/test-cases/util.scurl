@@ -16,7 +16,7 @@
 ||| @authors Hitoshi Okada
 |||
 
-{import * from COM.CURLAP.LIB.UTIL}
+{import * from COM.CURL.LIB.UTIL}
 
 || test procs
 {define-proc {wrapped-diff
@@ -44,7 +44,7 @@
 
 
 || TestCase
-{TestSuite "COM.CURLAP.LIB.UTIL",
+{TestSuite "COM.CURL.LIB.UTIL",
     {test-case "diff",
 
         || basic

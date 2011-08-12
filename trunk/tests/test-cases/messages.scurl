@@ -17,9 +17,9 @@
 |||
 {curl-file-attributes character-encoding = "utf8"}
 
-{import * from COM.CURLAP.LIB.MESSAGES}
+{import * from COM.CURL.LIB.MESSAGES}
 
-{TestSuite "COM.CURLAP.LIB.MESSAGES",
+{TestSuite "COM.CURL.LIB.MESSAGES",
     {test-case "messages",
         def messages = {MessageList
                            "MSG01", "あいうえお",

@@ -17,7 +17,7 @@
 |||
 
 {import TextInputStream, TextOutputStream from CURL.IO.STREAM}
-{import StringUtil from COM.CURLAP.LIB.LANG}
+{import StringUtil from COM.CURL.LIB.LANG}
 
 {doc-next
     {purpose javaの.propertiesファイルフォーマットを利用するクラス}

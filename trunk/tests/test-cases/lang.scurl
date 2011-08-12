@@ -17,9 +17,9 @@
 ||| @authors Hitoshi Okada, Izumi Kashiwagi, Yoshitaka Fukuta, D.TIAN
 |||
 
-{import * from COM.CURLAP.LIB.LANG}
+{import * from COM.CURL.LIB.LANG}
 
-{TestSuite "COM.CURLAP.LIB.LANG",
+{TestSuite "COM.CURL.LIB.LANG",
     {test-case "number",
         || even
         {TestCondition.assert {NumberUtil.is-even? 10}}

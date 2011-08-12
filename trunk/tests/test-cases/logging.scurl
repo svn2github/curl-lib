@@ -16,9 +16,9 @@
 ||| @authors Izumi Kashiwagi
 |||
 
-{import * from COM.CURLAP.LIB.LOGGING}
+{import * from COM.CURL.LIB.LOGGING}
 
-{TestSuite "COM.CURLAP.LIB.LOGGING",
+{TestSuite "COM.CURL.LIB.LOGGING",
     {test-case "logging",
 
     }

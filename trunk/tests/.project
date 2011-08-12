@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>COM.CURLAP.LIB.TESTS</name>
+	<name>COM.CURL.LIB.TESTS</name>
 	<comment>Curl プロジェクト</comment>
 	<projects>
+		<project>COM.CURLAP.LIB</project>
+		<project>ide</project>
 	</projects>
 	<buildSpec>
 	</buildSpec>

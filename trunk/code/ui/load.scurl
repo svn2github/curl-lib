@@ -16,8 +16,8 @@
 ||| @authors D.TIAN, Hitoshi Okada
 |||
 
-{curl 6.0, 7.0 package}
-{package COM.CURLAP.LIB.UI}
+{curl 6.0, 7.0, 8.0 package}
+{package COM.CURL.LIB.UI}
 
 {import public * from CURL.GUI.STANDARD}
 

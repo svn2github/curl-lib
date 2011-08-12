@@ -16,8 +16,8 @@
 ||| @authors Hitoshi Okada
 |||
 
-{curl 6.0, 7.0 package}
-{package COM.CURLAP.LIB.ENVIRONMENT}
+{curl 6.0, 7.0, 8.0 package}
+{package COM.CURL.LIB.ENVIRONMENT}
 
 {import * from CURL.IO.SOCKET}
 {import CURL.ENGINE.APPLET, using-name = APPLET}

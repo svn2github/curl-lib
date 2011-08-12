@@ -20,10 +20,10 @@
 
 {import * from CURL.GUI.BASE}
 
-{import * from COM.CURLAP.LIB.COLLECTIONS}
+{import * from COM.CURL.LIB.COLLECTIONS}
 {import * from CURL.GUI.STANDARD}
 
-{TestSuite "COM.CURLAP.LIB.COLLECTIONS",
+{TestSuite "COM.CURL.LIB.COLLECTIONS",
     {test-case "array",
         def x1 = {array 1, 2, 3}
         {TestCondition.assert x1.element-type == int}
@@ -33,7 +33,7 @@
         || element-type depends on API version
         {TestCondition.assert
             x2.element-type == {api-version-switch
-                                case "7.0+" do
+                                case "7.0+", "8.0" do
                                    GuiEventTarget
                                 case "6.0" do
                                    {MultiUIValueControlFrame-of String}
@@ -58,7 +58,7 @@
         || key-type depends on API version
         {TestCondition.assert
             ht3.key-type == {api-version-switch
-                             case "7.0+" do
+                             case "7.0+", "8.0" do
                                 GuiEventTarget
                              case "6.0" do
                                 {MultiUIValueControlFrame-of String}
