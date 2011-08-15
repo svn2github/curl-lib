@@ -3,8 +3,6 @@
 	<name>COM.CURL.LIB.TOOLS</name>
 	<comment>A Curl Project</comment>
 	<projects>
-		<project>COM.CURL.LIB.TESTS</project>
-		<project>ide</project>
 	</projects>
 	<buildSpec>
 	</buildSpec>

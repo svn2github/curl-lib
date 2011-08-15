@@ -17,7 +17,7 @@
 |||
 
 {curl 6.0, 7.0, 8.0 manifest}
-{manifest TESTS,
+{manifest COM.CURL.LIB.TESTS,
     x-environment = "development"
 }
 
