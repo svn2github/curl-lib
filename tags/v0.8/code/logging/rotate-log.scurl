@@ -1,0 +1,305 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Izumi Kashiwagi
+|||
+
+{import CompressionFormat from CURL.IO.ZSTREAM}
+
+{doc-next {purpose ログローテーションのタイミング}}
+{define-enum public LogRotateTiming
+    monthly = 30days,
+    weekly = 7days,
+    daily = 1days,
+    test = 5min
+}
+
+{let timestamp:String = ""} 
+
+{doc-next
+    {purpose
+        ログのローテーションを行います。ローテーションする際は、ファイル名の後ろに
+        .（連番）が付与されます。例えば log.txt をローテーションする場合、
+        log.txt.1 / log.txt.2 / log.txt.3 ... となります。
+        又、ローテーションの開始日時はログファイル作成日時ではありません。
+        このプロシージャが始めて呼ばれた日時となります。
+    }
+    {parameter log-url, ログファイルのパス。}
+    {parameter timing, ログのローテーションタイミング。}
+    {parameter number, ログを残す世代数。-1 を指定した場合は、無限に残します。}
+    {parameter max-size,
+        ログファイルの最大サイズ。-1 を指定した場合は、timing を元にローテーションを行います。
+        -1 以外が指定されている場合は、timing に関係なくログファイルのサイズが指定値を超えていると
+        ローテーションを行います。
+    }
+    {parameter create-after-rotate?,
+        ローテーション実行後に、新しいログファイルを新規作成するかどうか指定します。
+        false が指定された場合は、ローテーション実行後にログファイルがない状態になります。
+    }
+    {parameter compress?,
+        ローテーション実行時に、ファイルを圧縮するかどうかを指定します。
+    }
+    {parameter compression-format,
+        ローテーション実行時にファイルを圧縮する場合、その圧縮データの形式を指定します。
+        {docref CompressionFormat.gzip} 又は {docref CompressionFormat.zlib} を指定します。
+    }
+    {parameter timestamp-file-name,
+        最終ローテーション日時を保持するファイル名を指定します。
+        ただし、末尾が.（数値）にならないよう注意してください。
+    }
+}
+{define-proc public inline {rotate-log 
+                               log-url:Url,
+                               timing:LogRotateTiming,
+                               number:int = -1,
+                               max-size:int = -1,
+                               create-after-rotate?:bool = true,
+                               compress?:bool = true,
+                               compression-format:CompressionFormat = CompressionFormat.gzip,
+                               timestamp-file-name:String = ".curl-timestamp"
+                           }:void
+    set timestamp = timestamp-file-name 
+                          
+    ||check whether log file exists in local or not
+    {if not {local-file-exists? log-url} then
+        {return}
+    }
+    
+    ||check whether log files should be rotated or not
+    {if not {check-rotate log-url, timing, max-size} then
+        {return}
+    }
+
+    def (ordered-logfiles, oldest-num) = {get-ordered-logfiles log-url}
+
+    let new-num:int = oldest-num
+    
+    ||remove the last log
+    {if oldest-num == number then
+        {delete ordered-logfiles[0]}
+        {ordered-logfiles.remove 0}
+     else
+        set new-num = oldest-num + 1
+    }
+
+    ||rename existed log files
+    {for lf:Url in ordered-logfiles do
+        {rename lf, {url {remove-number lf} & "." & new-num}}
+        {dec new-num}
+    }
+    
+    ||rename new file
+    {if {local-file-exists? log-url} then
+        {if compress? then
+            {compress
+                {read-open-byte log-url},
+                {write-open-byte {url log-url.full-filename & ".gz.1"}},
+                compression-format = compression-format
+            }
+         else
+            {rename log-url, {url log-url.full-filename & ".1"}}
+        }
+    }
+
+    {if create-after-rotate? then
+        {create-File log-url}
+        {write-timestamp-file log-url}
+    }
+}
+
+{doc-next
+    {purpose
+        最終ローテート日時を示すファイルを更新します。
+    }
+    {parameter log-url, ログファイルのパス。}
+}
+{define-proc package {write-timestamp-file
+                        log-url:Url
+                    }:void
+    {type-switch {log-url.resolve}
+     case lf:LocalFile do
+        {with-open-streams
+            out = {write-open
+                      {get-timestamp-file-url lf},
+                      create? = true,
+                      error-if-exists? = false
+                  }
+         do
+        }
+    }
+}
+
+{doc-next
+    {purpose
+        最終ローテート日時を示すファイルのパスを取得します。
+    }
+    {parameter lf, {docref LocalFile} 型のログファイル。}
+    {return-vals ログファイルの親ディレクトリのパスに最終ローテート日時を示すファイル名を連結したパスを返します。}
+}
+{define-proc package {get-timestamp-file-url
+                        lf:LocalFile
+                    }:Url
+    {return
+        {lf.parent-dir.concat timestamp}
+    }
+}
+
+{doc-next
+    {purpose
+        ローテーションの条件を満たしているかチェックします。
+    }
+    {parameter log-url, ログファイルのパス。}
+    {parameter timing, ログのローテーションタイミング。}
+    {parameter max-size,
+        ログファイルの最大サイズ。-1 を指定した場合は、timing を元にチェックします。
+        -1 以外が指定されている場合は、timing に関係なくログファイルのサイズが
+        指定値を超えているかどうかでチェックします。
+    }
+    {return-vals ローテーションの条件を満たしているかどうかのフラグ。}
+}
+{define-proc package {check-rotate
+                        log-url:Url,
+                        timing:LogRotateTiming,
+                        max-size:int
+                    }:bool
+    let should-be-rotate?:bool = false
+    {type-switch {log-url.resolve}
+     case lf:LocalFile do
+        {if max-size != -1 and max-size < {lf.info}.size then
+            ||check size
+            set should-be-rotate? = true            
+         else
+            ||check modified datetime
+            {if {local-file-exists? {get-timestamp-file-url lf}} then
+                {type-switch {{get-timestamp-file-url lf}.resolve}
+                 case tlf:LocalFile do
+                    def log-last-modified = tlf.when-last-modified
+                    {if-non-null lm = log-last-modified then
+                        set should-be-rotate? = lm + timing.value < {DateTime}
+                    }
+                 else
+                }
+             else
+                {create-File {get-timestamp-file-url lf}}
+            }   
+        }
+     else
+    }
+    {return should-be-rotate?}
+}
+
+{doc-next
+    {purpose
+        ローテーション済みのログファイルを降順（古い順）に並べて取得します。
+    }
+    {parameter log-url, ログファイルのパス。}
+    {return-vals
+        次の 2 つを返します。
+        {itemize
+            {item
+                最初に返される値は、ログファイルのディレクトリに含まれるローテーション済みのログファイルの配列です。
+                これは、降順（古い順）にソートされています。
+            }
+            {item
+                2 番目に返される値は、ローテーション済みのログファイルのうち最も古いログファイルの番号です。
+                ローテーション済みのログファイルがない場合は、-1 を返します。
+            }
+        }
+    }
+}
+{define-proc package {get-ordered-logfiles
+                        log-url:Url
+                    }:(ordered-logfiles:{Array-of Url}, oldest-num:int)
+    def logfiles = {{Array-of Url}}
+    {type-switch {log-url.resolve}
+     case lf:LocalFile do
+        def dir = lf.parent-dir
+        {if dir isa Directory then
+            {for lf:LocalFile in dir do
+                {if {is-log-file? lf.url} then
+                    {logfiles.append lf.url}
+                }
+            }
+        }
+    }
+    {logfiles.sort
+        comparison-proc = {proc {u1:Url, u2:Url}:bool
+                              {return
+                                  {String-leq? u2.filename, u1.filename}
+                              }
+                          }
+    }
+    let oldest-num:int = -1
+    {if logfiles.size > 0 then
+        set oldest-num = {get-number logfiles[0]}
+    }
+    {return logfiles, oldest-num}
+}
+
+{doc-next
+    {purpose
+        ローテーション済みのログファイルかどうかチェックします。        
+    }
+    {parameter file-url, チェック対象のファイルのパス。}
+    {return-vals
+        ローテーション済みのログファイルかどうかのフラグ。
+        ファイル名の末尾が .（数値） の場合に true を返します。
+    }
+}
+{define-proc package {is-log-file? file-url:Url}:bool
+    {return
+        {get-number file-url} > 0
+    }
+}
+
+{doc-next
+    {purpose
+        ファイル名を後方から検索し、.以降の数値を取得します。        
+    }
+    {parameter file-url, 対象のファイルのパス。}
+    {return-vals
+        ローテーション済みのログファイルの場合、1 以上の数値が返されます。
+        .以降に数値が見つからない場合は 0 、.自体が見つからない場合は -1 が返されます。
+    }
+}
+{define-proc package {get-number file-url:Url}:int
+    def file-name = file-url.filename
+    def index = {file-name.find-string ".", search-direction = SearchDirection.backward}
+    {if index == -1 then {return -1}}
+    {return
+        {{file-name.substr index + 1, file-name.size - index - 1}.to-int}
+    }
+}
+
+{doc-next
+    {purpose
+        ファイル名を後方から検索し、.及び.以降の数値を削除します。        
+    }
+    {parameter file-url, 対象のファイルのパス。}
+    {return-vals
+        ローテーション済みのログファイルの場合、ローテーション時に付与した . 及び数値を削除します。
+        .以降に数値が見つからない場合、又は.自体が見つからない場合は対象のファイルパスがそのまま返されます。
+    }
+}
+{define-proc package {remove-number file-url:Url}:String
+    def full-filename = file-url.full-filename
+    def index = {full-filename.find-string ".", search-direction = SearchDirection.backward}
+    {if index == -1 or {{full-filename.substr index + 1, full-filename.size - index - 1}.to-int} == 0 then
+        {return full-filename}
+    }
+    {return
+        {full-filename.substr 0, index}
+    }
+}

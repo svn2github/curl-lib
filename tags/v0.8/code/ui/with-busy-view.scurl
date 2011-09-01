@@ -1,0 +1,87 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+|||
+|||     http://www.apache.org/licenses/LICENSE-2.0
+|||
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors D.TIAN, Yoshitaka Fukuta
+|||
+{curl-file-attributes character-encoding = "utf8"}
+
+{doc-next
+    {purpose
+        マクロ内の処理が実行されている間、ボタン（{docref CommandButton},
+        {docref CheckButton}, {docref RadioButton}）をdisableにします。
+        これにより、2度押し等を防止できます。
+    }
+    {signature
+        {ctext {with-busy-view {metavar view} do {metavar body}}}
+        {parameter view, ボタンを押下不可にする対象の {docref View}。}
+    }
+}
+{define-macro public
+    {with-busy-view
+        ?view:expression
+     do
+        ?body:verbatim
+    }
+    {return
+        {expand-template
+            let view:View = ?view
+            def restore-proc = {disable-buttons view}
+            {try
+                {view.update}
+                ?body
+             finally
+                {after 0s do
+                    {restore-proc}
+                    || FIXME:
+                    || スキンコントロールで正しく再描画されない場合があるためのworkaround
+                    {refresh-skin-drawing view}
+                }
+            }
+        }
+    }
+}
+
+{define-proc {disable-buttons view:View}:(restore-proc:{proc-type {}:void})
+    def uis = {{Array-of BaseButtonUI}}
+    {walk-graphics
+        view,
+        {proc {g:Graphic}:void
+            {type-switch g
+             case ui:BaseButtonUI do
+                set ui.enabled? = false
+                {uis.append ui}
+            }
+        }
+    }
+    {return
+        {proc {}:void
+            {for ui in uis do {unset ui.enabled?}}
+        }
+    }
+}
+
+{define-proc {refresh-skin-drawing view:View}:void
+    {walk-graphics
+        view,
+        {proc {g:Graphic}:void
+            {type-switch g
+             case ui:BaseButtonUI do
+                {ui.react-to-state-change}
+             case cbx:ComboBox do
+                {cbx.request-draw}
+            }
+        }
+    }
+}

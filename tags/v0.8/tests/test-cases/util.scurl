@@ -1,0 +1,126 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from COM.CURL.LIB.UTIL}
+
+|| test procs
+{define-proc {wrapped-diff
+                 str1:String, str2:String
+             }:(c-str:String, a-str:String, d-str:String)
+    def c-buf = {StringBuf}
+    def a-buf = {StringBuf}
+    def d-buf = {StringBuf}
+    {diff
+        str1, str2,
+        {fn ses, o, n, p1, p2 =>
+||--            {dump ses, o, n, p1, p2}
+            {switch ses
+             case ShortestEditScript.common do
+                {c-buf.append o}
+             case ShortestEditScript.added do
+                {a-buf.append n}
+             case ShortestEditScript.deleted do
+                {d-buf.append o}
+            }
+        }
+    }
+    {return {c-buf.to-String}, {a-buf.to-String}, {d-buf.to-String}}
+}
+
+
+|| TestCase
+{TestSuite "COM.CURL.LIB.UTIL",
+    {test-case "diff",
+
+        || basic
+        let (c-str, a-str, d-str) = {wrapped-diff "", ""}
+        {TestCondition.assert c-str == "" and a-str == "" and d-str == ""}
+        set (c-str, a-str, d-str) = {wrapped-diff "abc", ""}
+        {TestCondition.assert c-str == "" and a-str == "" and d-str == "abc"}
+        set (c-str, a-str, d-str) = {wrapped-diff "", "abc"}
+        {TestCondition.assert c-str == "" and a-str == "abc" and d-str == ""}
+
+        set (c-str, a-str, d-str) = {wrapped-diff "abc", "b"}
+        {TestCondition.assert c-str == "b" and a-str == "" and d-str == "ac"}
+        set (c-str, a-str, d-str) = {wrapped-diff "b", "abc"}
+        {TestCondition.assert c-str == "b" and a-str == "ac" and d-str == ""}
+
+        set (c-str, a-str, d-str) = {wrapped-diff "bc", "b"}
+        {TestCondition.assert c-str == "b" and a-str == "" and d-str == "c"}
+        set (c-str, a-str, d-str) = {wrapped-diff "b", "bc"}
+        {TestCondition.assert c-str == "b" and a-str == "c" and d-str == ""}
+
+        set (c-str, a-str, d-str) = {wrapped-diff "ab", "b"}
+        {TestCondition.assert c-str == "b" and a-str == "" and d-str == "a"}
+        set (c-str, a-str, d-str) = {wrapped-diff "b", "ab"}
+        {TestCondition.assert c-str == "b" and a-str == "a" and d-str == ""}
+
+        || japanese
+        set (c-str, a-str, d-str) = {wrapped-diff "あaいiうuえeおかだ", "ああaいiえeおかだ"}
+        {TestCondition.assert c-str == "あaいiえeおかだ" and a-str == "あ" and d-str == "うu"}
+
+        || randam
+        set (c-str, a-str, d-str) = {wrapped-diff "xxxxabxde", "abzdk"}
+        {TestCondition.assert c-str == "abd" and a-str == "zk" and d-str == "xxxxxe"}
+        
+        || space
+        set (c-str, a-str, d-str) = {wrapped-diff "abc def xyz ghi", "abc dqf ghi"}
+        {TestCondition.assert c-str == "abc df ghi" and a-str == "q" and d-str == "exyz "}
+        
+        || \n
+        set (c-str, a-str, d-str) = {wrapped-diff "\nabc \ndef ghi\n", "abc def ghi"}
+        {TestCondition.assert c-str == "abc def ghi" and a-str == "" and d-str == "\n\n\n"}
+        set (c-str, a-str, d-str) = {wrapped-diff "abc def ghi", "\nabc \ndef ghi\n"}
+        {TestCondition.assert c-str == "abc def ghi" and a-str == "\n\n\n" and d-str == ""}
+    },
+    {test-case "stopwatch",
+        {stop-watch
+            finish-proc =
+                {proc {elapsed-time:Time}:void
+                    ||{output "stopwatch=" & elapsed-time}
+                    {TestCondition.assert elapsed-time >= 0s}
+                }
+         do
+            {for i = 0 to 10000 do
+                || do nothing
+            }
+        }
+    },
+    {test-case "properties",
+        def props = {Properties}
+        {props.load {read-open {url "file/properties/resource_ja.properties"}}}
+        {TestCondition.assert props.size == 5}
+        {TestCondition.assert props["hello.english"] == "abcde"}
+        {TestCondition.assert props["hello.japanese"] == "あいうえお"}
+
+        def saved-props = {Properties}
+        {saved-props.set "foo.t1", "val1"}
+        {saved-props.set "foo.t2", "val2"}
+        {saved-props.set "foo.t3", "val3"}
+        def saved-file = "file/properties/test.properties"
+        {with-open-streams out = {write-open {url saved-file}}
+         do
+            {saved-props.store out}
+        }
+        {delete {url saved-file}, error-if-missing? = false}
+    }|#,
+    {test-case "resource bundle for properties",
+        def rb = {ResourceBundle.get-bundle {url "file/properties/resource_ja.pro"}}
+        {output rb["hello.english"]}
+    }#|
+}

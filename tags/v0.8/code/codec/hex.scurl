@@ -1,0 +1,78 @@
+||| Copyright (C) 1998-2008, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+||| (Comments from William Bardwell) 
+|||
+
+{doc-next
+    {purpose 16進のバイトデータから文字列へエンコードします。}
+    {parameter bytes, バイトデータ{docref ByteVec}}
+    {return-vals 文字列}
+    {details
+        以下はサンプルとなります。
+        {curl-code
+            {hex-encode {ByteVec 255, 7, 10}} || == "ff070a"
+        }
+    }
+}
+|| NOTE: The following code is faster than above.
+{define-proc public inline {hex-encode bytes:ByteVec}:String
+    def buf = {StringBuf efficient-size = bytes.size * 2}
+    {for b in bytes do
+        {buf.append {nibble-to-hex {bit-srl b, 4}}}
+        {buf.append {nibble-to-hex b}}
+    }
+    {return {buf.to-String}}
+}
+{define-proc package inline {nibble-to-hex ch:int}:char
+    {return "0123456789abcdef"[{bit-and ch, 0xF}]}
+}
+
+{doc-next
+    {purpose 16進の文字列からバイトデータへデコードします。}
+    {parameter str, 文字列}
+    {return-vals バイトデータ{docref ByteVec}}
+    {details
+        以下はサンプルとなります。
+        {curl-code
+            {hex-decode "0b070a"} || == {ByteVec 11, 7, 10}
+        }
+    }
+}
+|| NOTE: The following code is faster than above.
+{define-proc public {hex-decode str:String}:ByteVec
+    def bytes = {ByteVec max-size = str.size div 2}
+    {for i:int = 0 below str.size step 2 do
+        {bytes.append {hex-pair-to-int str[i], str[i + 1]} asa byte}
+    }
+    {return bytes}
+}
+{define-proc package inline {hex-digit-to-int ch:char}:int
+    {return
+        {if ch <= '9' and ch >= '0' then
+            ch - '0'
+         elseif ch <= 'F' and ch >= 'A' then
+            ch - 'A' + 10
+         elseif ch <= 'f' and ch >= 'a' then
+            ch - 'a' + 10
+         else
+            -1
+        }
+    }
+}
+{define-proc package inline {hex-pair-to-int c1:char, c2:char}:int
+    {return {hex-digit-to-int c1} * 16 + {hex-digit-to-int c2}}
+}

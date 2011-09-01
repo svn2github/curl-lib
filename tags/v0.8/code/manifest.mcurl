@@ -1,0 +1,95 @@
+||| Copyright (C) 1998-2008, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada, Yoshitaka Fukuta, Izumi Kashiwagi
+|||          Mitsunori Mine, Hiroshi Miyazaki
+|||
+
+{curl 6.0, 7.0, 8.0 manifest}
+{curl-file-attributes character-encoding = "utf8"}
+{manifest COM.CURL.LIB,
+    version = "0.8"}
+
+{component package COM.CURL.LIB.LANG,
+    location = "lang/load.scurl"
+}
+
+{component package COM.CURL.LIB.COLLECTIONS,
+    location = "collections/load.scurl"
+}
+
+{component package COM.CURL.LIB.DATA-ACCESS,
+    location = "data-access/load.scurl"
+}
+
+{component package COM.CURL.LIB.IO,
+    location = "io/load.scurl"
+}
+
+{component package COM.CURL.LIB.CRYPTO,
+    location = "crypto/load.scurl"
+}
+
+{component package COM.CURL.LIB.ENVIRONMENT,
+    location = "environment/load.scurl"
+}
+
+{component package COM.CURL.LIB.UI,
+    location = "ui/load.scurl"
+}
+
+{component package COM.CURL.LIB.LOGGING,
+    location = "logging/load.scurl"
+}
+
+{component package COM.CURL.LIB.CACHING,
+    location = "caching/load.scurl"
+}
+
+{component package COM.CURL.LIB.JAPAN,
+    location = "japan/load.scurl"
+}
+
+{component package COM.CURL.LIB.UTIL,
+    location = "util/load.scurl"
+}
+
+{component package COM.CURL.LIB.MISC,
+    location = "misc/load.scurl"
+}
+
+{component package COM.CURL.LIB.MATH,
+    location = "math/load.scurl"
+}
+
+{component package COM.CURL.LIB.CODEC,
+    location = "codec/load.scurl"
+}
+
+{component package COM.CURL.LIB.MESSAGES,
+    location = "messages/load.scurl"
+}
+
+{component file Win32WMI.dll,
+    location = {url "environment/win32wmi.dll"}    
+}
+
+{component file classic-project.cprj,
+    location = "classic-project.cprj"
+}
+
+{component file project.cprj,
+    location = "project.cprj"
+}

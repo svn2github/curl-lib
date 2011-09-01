@@ -1,0 +1,77 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import SerializeInputStream from CURL.IO.SERIALIZE}
+{import * from COM.CURL.LIB.DATA-ACCESS}
+
+{doc-next
+    {purpose ファイルからテキストデータ（{docref String}）を取り出します。}
+    {parameter url, 読み込むファイル}
+}
+{define-proc public inline {read-text-from-url
+                               url:Url
+                           }:String
+    {with-open-streams tis = {read-open url} do
+        {return {{tis.read-one-string}.to-String}}
+    }
+}
+
+{doc-next
+    {purpose ファイルからバイトデータ（{docref ByteArray}）を取り出します。}
+    {parameter url, 読み込むファイル}
+}
+{define-proc public inline {read-byte-from-url
+                               url:Url
+                           }:ByteArray
+    {with-open-streams bis = {read-open-byte url} do
+        {return {bis.read}}
+    }
+}
+
+{doc-next
+    {purpose ファイルからオブジェクトを取り出します。}
+    {notes オブジェクトを書き出す場合は、{docref write-object-to-url}を利用してください。}
+}
+{define-proc public inline {read-object-from-url
+                               url:Url
+                           }:any
+    {with-open-streams in = {SerializeInputStream {read-open-byte url}} do
+        {return {in.read-one}}
+    }
+}
+
+{doc-next
+    {purpose ファイルから{docref RecordSet}を取り出します。}
+    {parameter url, 保存先}
+    {parameter domain-from-type,
+        {docref Type}から、カスタマイズされた{docref Domain}を生成するプロシージャ}
+    {details {docref RecordSet}を書き出す場合は、{docref write-record-set-to-url}を利用してください。}
+    {notes 但しイベントハンドラや状態は復帰できません。}
+}
+{define-proc public inline {read-record-set-from-url
+                               url:Url,
+                               domain-from-type:{proc-type {Type}:Domain} =
+                                   {proc {t:Type}:Domain
+                                       {return {Domain.from-type t}}
+                                   }
+                           }:RecordSet
+    {with-open-streams in = {SerializeInputStream {read-open-byte url}} do
+        {return {RecordSetUtil.read-from-stream in, domain-from-type = domain-from-type}}
+    }
+}
+

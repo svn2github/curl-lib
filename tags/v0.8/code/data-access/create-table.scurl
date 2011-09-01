@@ -1,0 +1,106 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from CURL.LANGUAGE.SOURCE}
+
+{doc-next
+    {purpose RecordSetを簡単に作るマクロ}
+    {details
+        SQLのCREATE TABLEのように記載して{docref RecordSet}を生成できます。
+        {curl-code
+            let rs1:RecordSet = 
+                {create-table
+                    col1 String NOT NULL,
+                    col2 int,
+                    col3 DateTime,
+                    col4 {CustomizedDomain},
+                    col5 || 省略はany型
+                }
+            
+            let rs2:RecordSet =
+                {create-table
+                    col1,
+                    col2,
+                    col3
+                }
+        }
+    }
+    || TODO: PRIMARY KEYは指定できない。（Uniqueの考え方が違うため。）
+    || TODO: DEFAULT句
+    || TODO: カスタマイズDomainを指定可能。しかし変数にしなければならない。
+}
+{define-macro public {create-table
+                         ?fields:{bounded-comma-sequence 1, infinity,
+                                     ?:tokens
+                                 }
+                     }
+    def record-fields = {{Array-of CurlSource}}
+    def comma = {Operator OperatorKind.Comma}
+    {for f key i in fields do
+        {syntax-switch f, must-match? = true
+         case {pattern
+                  ?name:identifier 
+||--                  ?type:{optional ?:identifier} 
+                  ?type:{bounded-sequence 0, 1, ?:expression} 
+                  ?not-null:{one-of
+                                {pattern},
+                                {pattern not null},
+                                {pattern NOT NULL}
+                            }
+              }
+         do
+            def col-name = {Literal name.name}
+            def col-type = {syntax-switch type
+                            case {pattern} do
+                               {Literal any}
+                            else
+                               type
+                           }
+            def nullable? =
+                {Literal
+                    {syntax-switch not-null
+                     case {pattern} do
+                        false
+                     else
+                        true
+                    }
+                }
+            {if i != 0 then
+                {record-fields.append comma}
+            }
+            {record-fields.append
+                {expand-template
+                    {RecordField
+                        ?col-name,
+                        domain = ?col-type,
+                        nullable? = ?nullable?
+                    }
+                }
+            }
+        }
+    }
+    {return
+        {expand-template
+            {RecordSet
+                {RecordFields
+                    ?record-fields
+                }
+            }
+        }
+    }
+}

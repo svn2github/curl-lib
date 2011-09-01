@@ -1,0 +1,126 @@
+{curl-file-attributes character-encoding = "utf8"}
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Jun Takamatsu, Hitoshi Okada
+|||
+
+{import * from COM.CURL.LIB.JAPAN}
+
+{TestSuite "COM.CURL.LIB.JAPAN",
+    {test-case "postal-code",
+        def pcs = {PostalCodes.from-csv
+                      {url "file/postal-data/13TOKYO.CSV"},
+                      {url "file/postal-data/09TOCHIG.CSV"}
+                  }
+
+        {if-non-null pc = {pcs.search-by-postal-code "1000004"} then
+            || CSVデータ
+            || 13101,"100  ","1000004","ﾄｳｷｮｳﾄ","ﾁﾖﾀﾞｸ","ｵｵﾃﾏﾁ","東京都","千代田区","大手町",0,0,1,0,0,0
+            {TestCondition.assert pc.local-government-code == "13101"}
+            {TestCondition.assert pc.old-postal-code == "100  "}
+            {TestCondition.assert pc.postal-code == "1000004"}
+            {TestCondition.assert pc.prefecture-kana == "ﾄｳｷｮｳﾄ"}
+            {TestCondition.assert pc.city-kana == "ﾁﾖﾀﾞｸ"}
+            {TestCondition.assert pc.town-kana == "ｵｵﾃﾏﾁ"}
+            {TestCondition.assert pc.prefecture-kanji == "東京都"}
+            {TestCondition.assert pc.city-kanji == "千代田区"}
+            {TestCondition.assert pc.town-kanji == "大手町"}
+            {TestCondition.assert pc.city-dup-flag == "0"}
+            {TestCondition.assert pc.koaza-flg == "0"}
+            {TestCondition.assert pc.have-choume-flag == "1"}
+            {TestCondition.assert pc.town-dup-flag == "0"}
+            
+            ||{output pc.postal-code & " is " & pc.prefecture-kanji & " " & pc.city-kanji & " " & pc.town-kanji}
+         else
+            {error}
+        }
+
+        def pc = {pcs.search-by-postal-code-prefix "101003"}
+        {TestCondition.assert (pc asa {Array-of PostalCode}).size == 8}
+        def expect-array = {{Array-of String}
+                               "1010031",
+                               "1010032",
+                               "1010033",
+                               "1010034",
+                               "1010035",
+                               "1010036",
+                               "1010037",
+                               "1010038"
+                           }
+        def ret = {{Array-of String}}
+        {for pc:PostalCode in pc asa {Array-of PostalCode} do
+            {ret.append pc.postal-code}
+        }
+        {ret.sort}
+        {for i:int = 0 to expect-array.size - 1 do
+            {TestCondition.assert ret[i] == expect-array[i]}
+        }
+        ||{for pc:PostalCode in pc asa {Array-of PostalCode} do
+        ||    {output pc.postal-code & " is " & pc.prefecture-kanji & " " & pc.city-kanji & " " & pc.town-kanji}
+        ||}
+
+        ||複数CSVファイルに検索できているか
+        {if {pcs.search-by-postal-code "3210404"} == null then
+            {error}
+        }
+        ||存在しないコードで検索
+        {if-non-null pc = {pcs.search-by-postal-code "XXXXXXX"} then
+            {error}
+        }
+        ||存在しないコードで検索
+        {if ({pcs.search-by-postal-code-prefix "XXXX"} asa {Array-of PostalCode}).size != 0 then
+            {error}
+        }
+        
+        
+    },
+    {test-case "prefectures",
+        {TestCondition.assert {get-all-japanese-areas}.size == 8}
+        {TestCondition.assert {get-all-japanese-prefectures}.size == 47}
+        {TestCondition.assert {get-all-japanese-prefecture-names}.size == 47}
+        {for area in {get-all-japanese-areas} do
+            {for pref in area.prefectures do
+                def name = pref.name
+                {if name == "東京都" then
+                    {TestCondition.assert pref.is-to?}
+                    {TestCondition.assert not pref.is-dou?}
+                    {TestCondition.assert not pref.is-fu?}
+                    {TestCondition.assert not pref.is-ken?}
+                 elseif name == "北海道" then
+                    {TestCondition.assert not pref.is-to?}
+                    {TestCondition.assert pref.is-dou?}
+                    {TestCondition.assert not pref.is-fu?}
+                    {TestCondition.assert not pref.is-ken?}
+                 elseif name == "大阪府" or name == "京都府" then
+                    {TestCondition.assert not pref.is-to?}
+                    {TestCondition.assert not pref.is-dou?}
+                    {TestCondition.assert pref.is-fu?}
+                    {TestCondition.assert not pref.is-ken?}
+                 else
+                    {TestCondition.assert not pref.is-to?}
+                    {TestCondition.assert not pref.is-dou?}
+                    {TestCondition.assert not pref.is-fu?}
+                    {TestCondition.assert pref.is-ken?}
+                }
+            }
+        }
+        {TestCondition.assert {get-japanese-prefecture-from-prefecture-code "40"}.name == "福岡県"}
+        {TestCondition.assert {get-japanese-prefecture-from-prefecture-code "40"}.capital-city == "福岡市"}
+        {TestCondition.assert {get-japanese-name-from-prefecture-code "40"} == "福岡県"}
+        {TestCondition.assert {get-japanese-prefectures-from-area "九州"}.size == 8}
+    }
+}
+

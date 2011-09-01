@@ -1,0 +1,195 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from COM.CURL.LIB.MISC}
+
+|| ユーザ定義のアノテーション　（必ずAnnotationクラスを継承）
+{define-class public AnnotationA {inherits Annotation}
+  field public value:String
+  {constructor public {default v:String}
+    set self.value = v
+    {construct-super}
+  }
+}
+{define-class public AnnotationB {inherits Annotation}
+  field public str:String
+  field public i:int
+  {constructor public {default str:String, i:int = 0}
+    set self.str = str
+    set self.i = i
+    {construct-super}
+  }
+
+  {method public {do-something}:String
+    {return "do on MarkB"}
+  }
+}
+{define-class public AnnotationC {inherits Annotation}
+  field public i:int
+  {constructor public {default}
+    {construct-super
+        {on e:AnnotatedEvent do
+            || Annotationクラスがclass-envに登録される際に発生するイベント
+||--            {dump e.element-type} || Class, Method, Field
+            set self.i = 100
+        }
+    }
+  }
+}
+
+|| Foo
+{define-extended-class public Foo
+  {@AnnotationA "mark-a"} || クラスアノテーション
+  {@AnnotationB "mark-b", i = 10}
+  {@AnnotationC}
+
+  {field public v1:int}
+  {field public v2:int = 1}
+  field public v3:int
+  field public v4:int = 2
+  let public v5:int
+  let public v6:int = 3
+  {field public v7:int {@AnnotationC}} || フィールドアノテーション
+  {field public v8:int = 10 {@AnnotationC}}
+  
+  || Static initializer 
+  {static
+    set Foo.v5 = 100
+    set Foo.v6 = 200
+  }
+  
+  {constructor public {default}
+    {@AnnotationC} || コンストラクタアノテーション
+    
+    set self.v1 = self.v1 + self.v2
+    set self.v3 = self.v3 + self.v4
+  }
+  
+  {method public {do-something1 str:String}:String
+    {@AnnotationC} || メソッドアノテーション
+    
+    {return str}
+  }
+
+  {method public {do-something2 str:String}:String
+    {return str}
+  }
+
+  {method public {do-something3 i:int, str:String = "string"}:(int, String)
+    def i = self.v1
+    def str = self.v8 & ""
+    {return (i, str)}
+  }
+}
+
+|| PiyoException / ConvertedPiyoException
+{define-class public PiyoException {inherits Exception}
+  {constructor public {default message:String}
+    {construct-super message}
+  }
+}
+{define-class public ConvertedPiyoException {inherits Exception}
+  {constructor public {default message:String}
+    {construct-super message}
+  }
+}
+
+|| Hoge
+{define-extended-class public Hoge
+  {@Service "hoge"}
+  {@Aspect
+    pointcut = |"do-something|throw-exception"|,
+    {on e:BeforeAdviceEvent do
+        {assert e.pointcut != "do-nothing"}
+    },
+    {on e:AfterReturningAdviceEvent do
+        {assert e.pointcut != "do-nothing"}
+    },
+    {on e:AfterThrowingAdviceEvent do
+        let proper-exception = e.exception
+        {type-switch proper-exception
+         case ex:PiyoException do
+            set proper-exception =
+                {ConvertedPiyoException "converted exception"}
+        }
+        {assert e.pointcut != "do-nothing"}
+        {throw proper-exception}
+    }
+  }
+
+  {constructor public {default} }
+
+  {method public {do-something}:String
+    {return "do-something!"}
+  }
+
+  {method public {do-nothing}:void }
+
+  {method public {throw-exception}:int
+    {throw {PiyoException "PiyoException has occured."}}
+    {unreachable}
+    {return 100}
+  }
+}
+
+{TestSuite "COM.CURL.LIB.LANG(Extra)",
+    {test-case "annotation",
+        || Foo
+        {TestCondition.assert Foo.class-env.type == Foo}
+        {for annotation in Foo.class-env.annotations do
+            {type-switch annotation
+             case v:AnnotationA do
+                {TestCondition.assert v.value == "mark-a"}
+             case v:AnnotationB do
+                {TestCondition.assert v.str == "mark-b"}
+                {TestCondition.assert v.i == 10}
+                {TestCondition.assert {v.do-something} == "do on MarkB"}
+             case v:AnnotationC do
+                {TestCondition.assert v.i == 100}
+             else
+                {TestCondition.fail message = "Not markable class"}
+            }
+        }
+        def foo = {Foo}
+        {foo.do-something1 "xxxx"}
+        {foo.do-something2 "xxxx"}
+        {foo.do-something3 10, str = "xxxx"}
+    },
+    {test-case "AOP",
+        || Hoge
+        {TestCondition.assert Hoge.class-env.type == Hoge}
+        {for mark in Hoge.class-env.annotations do
+            {type-switch mark
+             case v:Service do
+             case v:Aspect do
+             else
+                {TestCondition.fail message = "Not markable class"}
+            }
+        }
+        def hoge = {Hoge}
+        {hoge.do-something}
+        {hoge.do-nothing}
+        {try
+            {hoge.throw-exception}
+         catch e:Exception do
+            {if not (e isa ConvertedPiyoException) then
+                {unreachable}
+            }
+        }
+    }
+}

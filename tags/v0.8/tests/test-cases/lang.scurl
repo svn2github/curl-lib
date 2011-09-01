@@ -1,0 +1,979 @@
+{curl-file-attributes character-encoding = "utf8"}
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+|||
+|||     http://www.apache.org/licenses/LICENSE-2.0
+|||
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada, Izumi Kashiwagi, Yoshitaka Fukuta, D.TIAN
+|||
+
+{import * from COM.CURL.LIB.LANG}
+
+{TestSuite "COM.CURL.LIB.LANG",
+    {test-case "number",
+        || even
+        {TestCondition.assert {NumberUtil.is-even? 10}}
+        {TestCondition.assert not {NumberUtil.is-even? 5}}
+        {TestCondition.assert {NumberUtil.is-even? 0}}
+
+        || odd
+        {TestCondition.assert not {NumberUtil.is-odd? 10}}
+        {TestCondition.assert {NumberUtil.is-odd? 5}}
+        {TestCondition.assert not {NumberUtil.is-odd? 0}}
+    },
+    {test-case "string",
+        || is-bool?
+        {TestCondition.assert {StringUtil.is-bool? "true"}}
+        {TestCondition.assert {StringUtil.is-bool? "TRUE"}}
+        {TestCondition.assert {StringUtil.is-bool? "True"}}
+        {TestCondition.assert {StringUtil.is-bool? "false"}}
+        {TestCondition.assert {StringUtil.is-bool? "False"}}
+        {TestCondition.assert not {StringUtil.is-bool? "false1"}}
+
+        || to-bool
+        {TestCondition.assert {StringUtil.to-bool "true"}}
+        {TestCondition.assert not {StringUtil.to-bool "false"}}
+        {require-exception CastException do
+            {assert not {StringUtil.to-bool "false1"}}
+        }
+
+        || is-number?
+        {TestCondition.assert {StringUtil.is-number? "123456789"}}
+        {TestCondition.assert {StringUtil.is-number? "-123456789"}}
+        {TestCondition.assert {StringUtil.is-number? "123.456789"}}
+        {TestCondition.assert {StringUtil.is-number? "-123.456789"}}
+        {TestCondition.assert {StringUtil.is-number? "-0.0456789"}}
+        {TestCondition.assert not {StringUtil.is-number? "123.456.789"}}
+        {TestCondition.assert not {StringUtil.is-number? "a123456789"}}
+        {TestCondition.assert not {StringUtil.is-number? "abcdefghijk"}}
+        {TestCondition.assert not {StringUtil.is-number? "01.23456789"}}
+
+        || is-alphabet?
+        {TestCondition.assert {StringUtil.is-alphabet? "abdz"}}
+        {TestCondition.assert {StringUtil.is-alphabet? "abDZ"}}
+        {TestCondition.assert not {StringUtil.is-number? "213adfasd"}}
+
+        || is-oct?
+        {TestCondition.assert {StringUtil.is-oct? "0170"}}
+        {TestCondition.assert not {StringUtil.is-oct? "0180"}}
+        {TestCondition.assert not {StringUtil.is-oct? "FF00"}}
+
+        || is-hex?
+        {TestCondition.assert {StringUtil.is-hex? "ADCE"}}
+        {TestCondition.assert {StringUtil.is-hex? "0000"}}
+        {TestCondition.assert {StringUtil.is-hex? "FF00"}}
+        {TestCondition.assert not {StringUtil.is-hex? "GG00"}}
+
+        || alternate
+        {TestCondition.assert {StringUtil.alternate "abcdefg", 3} == "abc..."}
+        {TestCondition.assert {StringUtil.alternate "abcdefg", 50} == "abcdefg..."}
+        {TestCondition.assert {StringUtil.alternate "abcdefg", 3, alternating-str = "!!"} == "abc!!"}
+        {TestCondition.assert {StringUtil.alternate "abcdefg", 0} == "..."}
+        {require-exception Exception do
+            {assert {StringUtil.alternate "abcdefg", -1} == "..."}
+        }
+
+        || head
+        {TestCondition.assert {StringUtil.head "abcdefg", 4} == "abcd"}
+        {TestCondition.assert {StringUtil.head "abcdefg", 50} == "abcdefg"}
+        {TestCondition.assert {StringUtil.head "abcdefg", 0} == ""}
+        {require-exception Exception do
+            {assert {StringUtil.head "abcdefg", -1} == ""}
+        }
+
+        || tail
+        {TestCondition.assert {StringUtil.tail "abcdefg", 4} == "defg"}
+        {TestCondition.assert {StringUtil.tail "abcdefg", 5} == "cdefg"}
+
+        || separate
+        def (h1, t1) = {StringUtil.separate-by-char "key=value", '='}
+        {TestCondition.assert h1 == "key" and t1 == "value"}
+        def (h2, t2) = {StringUtil.separate-by-char "keyvalue", '='}
+        {TestCondition.assert h2 == "keyvalue" and t2 == ""}
+        def (h3, t3) = {StringUtil.separate-by-char "key=value=comment", '='}
+        {TestCondition.assert h3 == "key" and t3 == "value=comment"}
+        def (h4, t4) = {StringUtil.separate-by-char "", '='}
+        {TestCondition.assert h4 == "" and t4 == ""}
+
+        def (h5, t5) = {StringUtil.separate "keyvalue", 3}
+        {TestCondition.assert h5 == "key" and t5 == "value"}
+
+        def fv = {StringUtil.separate-fixed-length "aaa bbbbccddddd", 4, 4, 2, 5}
+        {TestCondition.assert
+            fv[0] == "aaa " and fv[1] == "bbbb" and
+            fv[2] == "cc" and fv[3] == "ddddd"
+        }
+        
+        || substr
+        {TestCondition.assert {StringUtil.substr "abcdefg", 0, 4} == "abcd"}
+        {TestCondition.assert {StringUtil.substr "abcdefg", 1, 4} == "bcde"}
+        {TestCondition.assert {StringUtil.substr "abcdefg", 2, 50} == "cdefg"}
+        {require-exception Exception do
+            {assert {StringUtil.substr "abcdefg", 2, -1} == ""}
+        }
+
+        || count
+        {TestCondition.assert {StringUtil.count "abc def  ghi   jkl    "} == 10}
+        {TestCondition.assert {StringUtil.count "abc def  ghi   jkl    ", target ="  "} == 4}
+        {TestCondition.assert {StringUtil.count "abc Abc  abc   Abc    ", target ="a"} == 2}
+        {TestCondition.assert {StringUtil.count
+                                  "abc Abc  abc   Abc    ",
+                                  target ="abc ",
+                                  ignore-case? = true
+                              } == 4}
+        || delete
+        {TestCondition.assert {StringUtil.delete "abc def  ghi   jkl    ", " "} == "abcdefghijkl"}
+        {TestCondition.assert {StringUtil.delete "abc def  ghi   jkl    ", "  "} == "abc defghi jkl"}
+        {TestCondition.assert {StringUtil.delete "abc Abc  abc   Abc    ", "a"} == "bc Abc  bc   Abc    "}
+        {TestCondition.assert {StringUtil.delete
+                                  "abc Abc  abc   Abc    ",
+                                  ""
+                              } == "abc Abc  abc   Abc    "}
+        {TestCondition.assert {StringUtil.delete
+                                  "abC Abc  abC   Abc    ",
+                                  "a", "b", "c"
+                              } == "C A  C   A    "}
+
+        || pad right
+        {TestCondition.assert {StringUtil.pad-right "abc", 5} == "abc00"}
+        {TestCondition.assert {StringUtil.pad-right "abc", 5, padding-char = ' '} == "abc  "}
+        {TestCondition.assert {StringUtil.pad-right "abc", 2} == "abc"}
+
+        {TestCondition.assert {StringUtil.rjust "abc", 5} == "abc  "}
+        {TestCondition.assert {StringUtil.rjust "abc", 5, padding = '0'} == "abc00"}
+        {TestCondition.assert {StringUtil.rjust "abc", 2} == "abc"}
+
+        || pad left
+        {TestCondition.assert {StringUtil.pad-left "abc", 5} == "00abc"}
+        {TestCondition.assert {StringUtil.pad-left "abc", 5, padding-char = ' ' } == "  abc"}
+        {TestCondition.assert {StringUtil.pad-left "abc", 2} == "abc"}
+
+        {TestCondition.assert {StringUtil.ljust "abc", 5} == "  abc"}
+        {TestCondition.assert {StringUtil.ljust "abc", 5, padding = '0' } == "00abc"}
+        {TestCondition.assert {StringUtil.ljust "abc", 2} == "abc"}
+
+        || center
+        {TestCondition.assert {StringUtil.center "abc", 5} == " abc "}
+        {TestCondition.assert {StringUtil.center "abc", 5, padding = '0' } == "0abc0"}
+        {TestCondition.assert {StringUtil.center "abc", 2} == "abc"}
+
+        || capitalize
+        {TestCondition.assert {StringUtil.capitalize "abc"} == "Abc"}
+        {TestCondition.assert {StringUtil.capitalize "aBC"} == "Abc"}
+        {TestCondition.assert {StringUtil.capitalize "ABCDEFG"} == "Abcdefg"}
+        {TestCondition.assert {StringUtil.capitalize "Abc"} == "Abc"}
+
+        || to-chars
+        def chars = {StringUtil.to-chars "abc"}
+        {TestCondition.assert chars[0] == 'a'}
+        {TestCondition.assert chars[1] == 'b'}
+        {TestCondition.assert chars[2] == 'c'}
+        {TestCondition.assert chars.size == 3}
+
+        || insert
+        {TestCondition.assert {StringUtil.insert "20090910", "/", 4, 6} == "2009/09/10"}
+        {TestCondition.assert {StringUtil.insert "200909", "/", 4, 6, 8} == "2009/09/"}
+        {TestCondition.assert {StringUtil.insert "20090910", "/", 0, 4, 6} == "/2009/09/10"}
+        {TestCondition.assert {StringUtil.insert "20090910", "/", 0, 4, 6, 8} == "/2009/09/10/"}
+        {TestCondition.assert {StringUtil.insert "1040001", "-", 3} == "104-0001"}
+        {TestCondition.assert {StringUtil.delete "2009/09/10", "/"} == "20090910"}
+    },
+    {test-case "surrogates",
+        def (high, low) = (0xD867, 0xDE3D) ||　ホッケ（魚）の漢字
+        def x = {surrogates-to-char high, low}
+        def (h, l) = {char-to-surrogates x}
+||--        def bytes = {ByteVec 0xD8, 0x67, 0xDE, 0x3D}
+||--        def x = {surrogates-to-char bytes}
+||--        {dump {char-to-surrogates x}}
+||--        {TestCondition.assert h == high, message = "result=" & h & " high=" & high}
+||--        {dump high, low}
+||--        {dump h, l}
+        {TestCondition.assert l == low, message = "result=" & l & " low=" & low}
+    },
+    {test-case "get-bytes",
+        {TestCondition.assert {StringUtil.get-bytes "あいうえお"} == 10}
+        {TestCondition.assert {StringUtil.get-bytes "アイウエオ"} == 10}
+        {TestCondition.assert {StringUtil.get-bytes "ｱｲｳｴｵ"} == 5}
+        {TestCondition.assert {StringUtil.get-bytes "ABCDEFGHIJ"} == 10}
+        {TestCondition.assert {StringUtil.get-bytes "abcdefghij"} == 10}
+        {TestCondition.assert {StringUtil.get-bytes "ＡＢＣＤＥＦＧＨＩＪ"} == 20}
+        {TestCondition.assert {StringUtil.get-bytes "abcdefghij"} == 10}
+        {TestCondition.assert {StringUtil.get-bytes "ａｂｃｄｅｆｇｈｉｊ"} == 20}
+        {TestCondition.assert {StringUtil.get-bytes "住友太郎"} == 8}
+        {TestCondition.assert {StringUtil.get-bytes "住友太郎123"} == 11}
+    },
+    {test-case "can-encode",
+        {TestCondition.assert {StringUtil.can-encode?  "あ", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "ア", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "ｱ", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "A", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "a", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "Ａ", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "a", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "ａ", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "住", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "〒", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "/", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "&", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "￥", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "1", name = "shift-jis"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "１", name = "shift-jis"} == true}
+
+        {TestCondition.assert {StringUtil.can-encode?  "あ", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "ア", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "ｱ", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "A", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "a", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "Ａ", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "a", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "ａ", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "住", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "〒", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "/", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "&", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "￥", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "1", name = "utf8"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "１", name = "utf8"} == true}
+
+        {TestCondition.assert {StringUtil.can-encode?  "あ", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "ア", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "ｱ", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "A", name = "iso-latin-1"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "a", name = "iso-latin-1"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "Ａ", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "a", name = "iso-latin-1"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "ａ", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "住", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "〒", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "/", name = "iso-latin-1"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "&", name = "iso-latin-1"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "￥", name = "iso-latin-1"} == false}
+        {TestCondition.assert {StringUtil.can-encode?  "1", name = "iso-latin-1"} == true}
+        {TestCondition.assert {StringUtil.can-encode?  "１", name = "iso-latin-1"} == false}
+    },
+    {test-case "substr-with-bytes",
+        {TestCondition.assert {StringUtil.substr-with-bytes "あいうえお", 2, 3} == "い"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "アイウエオ", 2, 3} == "イ"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "ｱｲｳｴｵ", 2, 3} == "ｳｴｵ"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "ABCDEFGHIJ", 2, 3} == "CDE"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "abcdefghij", 2, 3} == "cde"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "ＡＢＣＤＥＦＧＨＩＪ", 2, 3} == "Ｂ"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "abcdefghij", 2, 3} == "cde"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "ａｂｃｄｅｆｇｈｉｊ", 2, 3} == "ｂ"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "住友太郎", 2, 3} == "友"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "1234567890", 2, 3} == "345"}
+        {TestCondition.assert {StringUtil.substr-with-bytes "１２３４５６７８９０", 2, 3} == "２"}
+    },
+    {test-case "full-to-half",
+        {TestCondition.assert
+            {StringUtil.full-to-half "ｑｗｅｒｔｙｕｉｏｐａｓｄｆｇｈｊｋｌｚｘｃｖｂｎｍ"} ==
+            "qwertyuiopasdfghjklzxcvbnm"
+        }
+        {TestCondition.assert
+            {StringUtil.full-to-half "ＱＷＥＲＴＹＵＩＯＰＡＳＤＦＧＨＪＫＬＺＸＣＶＢＮＭ"} ==
+            "QWERTYUIOPASDFGHJKLZXCVBNM"
+        }
+        {TestCondition.assert {StringUtil.full-to-half "１２３４５６７８９０"} == "1234567890"}
+        {TestCondition.assert
+            {StringUtil.full-to-half "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"} ==
+            "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"
+        }
+        {TestCondition.assert
+            {StringUtil.full-to-half "ガギグゲゴザジズゼゾダヂヅデドバビブベボ"} == "ｶﾞｷﾞｸﾞｹﾞｺﾞｻﾞｼﾞｽﾞｾﾞｿﾞﾀﾞﾁﾞﾂﾞﾃﾞﾄﾞﾊﾞﾋﾞﾌﾞﾍﾞﾎﾞ"
+        }
+        {TestCondition.assert {StringUtil.full-to-half "パピプペポ"} == "ﾊﾟﾋﾟﾌﾟﾍﾟﾎﾟ"}
+        {TestCondition.assert {StringUtil.full-to-half "チャチュチョニャニュニョリャリュリョ"} == "ﾁｬﾁｭﾁｮﾆｬﾆｭﾆｮﾘｬﾘｭﾘｮ"}
+        {TestCondition.assert {StringUtil.full-to-half "ー＾￥"} == "-^\\"}
+        {TestCondition.assert {StringUtil.full-to-half "＠「；：」、。・￥"} == "@｢;:｣､｡･\\"}
+        {TestCondition.assert {StringUtil.full-to-half "！”＃＄％＆’（）＝～｜"} == "!\"#$%&'()=~\|"}
+        {TestCondition.assert {StringUtil.full-to-half "‘｛＋＊｝＜＞？＿"} == "`\{+*\}<>?_"}
+    },
+    {test-case "half-to-full",
+        {TestCondition.assert
+            {StringUtil.half-to-full "qwertyuiopasdfghjklzxcvbnm"} ==
+            "ｑｗｅｒｔｙｕｉｏｐａｓｄｆｇｈｊｋｌｚｘｃｖｂｎｍ"
+        }
+        {TestCondition.assert
+            {StringUtil.half-to-full "QWERTYUIOPASDFGHJKLZXCVBNM"} ==
+            "ＱＷＥＲＴＹＵＩＯＰＡＳＤＦＧＨＪＫＬＺＸＣＶＢＮＭ"
+        }
+        {TestCondition.assert {StringUtil.half-to-full "1234567890"} == "１２３４５６７８９０"}
+        {TestCondition.assert
+            {StringUtil.half-to-full "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"} ==
+            "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
+        }
+        {TestCondition.assert
+            {StringUtil.half-to-full "ｶﾞｷﾞｸﾞｹﾞｺﾞｻﾞｼﾞｽﾞｾﾞｿﾞﾀﾞﾁﾞﾂﾞﾃﾞﾄﾞﾊﾞﾋﾞﾌﾞﾍﾞﾎﾞ"} == "ガギグゲゴザジズゼゾダヂヅデドバビブベボ"
+        }
+        {TestCondition.assert {StringUtil.half-to-full "ﾊﾟﾋﾟﾌﾟﾍﾟﾎﾟ"} == "パピプペポ"}
+        {TestCondition.assert {StringUtil.half-to-full "ﾁｬﾁｭﾁｮﾆｬﾆｭﾆｮﾘｬﾘｭﾘｮ"} == "チャチュチョニャニュニョリャリュリョ"}
+        {TestCondition.assert {StringUtil.half-to-full "-^\\"} == "ー＾￥"}
+        {TestCondition.assert {StringUtil.half-to-full "@｢;:｣､｡･\\"} == "＠「；：」、。・￥"}
+        {TestCondition.assert {StringUtil.half-to-full "!\"#$%&'()=~\|"} == "！”＃＄％＆’（）＝～｜"}
+        {TestCondition.assert {StringUtil.half-to-full "`\{+*\}<>?_"} == "‘｛＋＊｝＜＞？＿"}
+    },
+    {test-case "hiragana-to-katakana",
+        {TestCondition.assert
+            {StringUtil.hiragana-to-katakana "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"} ==
+            "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
+        }
+        {TestCondition.assert
+            {StringUtil.hiragana-to-katakana "がぎぐげござじずぜぞだぢづでどばびぶべぼ"} ==
+            "ガギグゲゴザジズゼゾダヂヅデドバビブベボ"
+        }
+        {TestCondition.assert {StringUtil.hiragana-to-katakana "ぱぴぷぺぽ"} == "パピプペポ"}
+        {TestCondition.assert
+            {StringUtil.hiragana-to-katakana "ちゃちゅちょにゃにゅにょりゃりゅりょ"} ==
+            "チャチュチョニャニュニョリャリュリョ"
+        }
+        {TestCondition.assert {StringUtil.hiragana-to-katakana "１２３４５６７８９０"} == "１２３４５６７８９０"}
+        {TestCondition.assert {StringUtil.hiragana-to-katakana "－＾￥"} == "－＾￥"}
+        {TestCondition.assert {StringUtil.hiragana-to-katakana "＠「；：」、。・￥"} == "＠「；：」、。・￥"}
+        {TestCondition.assert {StringUtil.hiragana-to-katakana "！”＃＄％＆’（）＝～｜"} == "！”＃＄％＆’（）＝～｜"}
+        {TestCondition.assert {StringUtil.hiragana-to-katakana "‘｛＋＊｝＜＞？＿"} == "‘｛＋＊｝＜＞？＿"}
+    },
+    {test-case "katakana-to-hiragana",
+        {TestCondition.assert
+            {StringUtil.katakana-to-hiragana "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"} ==
+            "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"
+        }
+        {TestCondition.assert
+            {StringUtil.katakana-to-hiragana "ガギグゲゴザジズゼゾダヂヅデドバビブベボ"} ==
+            "がぎぐげござじずぜぞだぢづでどばびぶべぼ"
+        }
+        {TestCondition.assert {StringUtil.katakana-to-hiragana "パピプペポ"} == "ぱぴぷぺぽ"}
+        {TestCondition.assert
+            {StringUtil.katakana-to-hiragana "チャチュチョニャニュニョリャリュリョ"} ==
+            "ちゃちゅちょにゃにゅにょりゃりゅりょ"
+        }
+        {TestCondition.assert {StringUtil.katakana-to-hiragana "１２３４５６７８９０"} == "１２３４５６７８９０"}
+        {TestCondition.assert {StringUtil.katakana-to-hiragana "－＾￥"} == "－＾￥"}
+        {TestCondition.assert {StringUtil.katakana-to-hiragana "＠「；：」、。・￥"} == "＠「；：」、。・￥"}
+        {TestCondition.assert {StringUtil.katakana-to-hiragana "！”＃＄％＆’（）＝～｜"} == "！”＃＄％＆’（）＝～｜"}
+        {TestCondition.assert {StringUtil.katakana-to-hiragana "‘｛＋＊｝＜＞？＿"} == "‘｛＋＊｝＜＞？＿"}
+    },
+    {test-case "is-member",
+        def half-number = "1234567890"
+        def half-alpha1 = "qwertyuiopasdfghjklzxcvbnm"
+        def half-alpha2 = "QWERTYUIOPASDFGHJKLZXCVBNM"
+        def half-mark1 = "-^\\"
+        def half-mark2 = "@[;:]､｡･\\"
+        def half-mark3 = "!\"#$%&'()=~\|"
+        def half-mark4 = "`\{+*\}<>?_"
+        def half-katakana1 = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"
+        def half-katakana2 = "ｶﾞｷﾞｸﾞｹﾞｺﾞｻﾞｼﾞｽﾞｾﾞｿﾞﾀﾞﾁﾞﾂﾞﾃﾞﾄﾞﾊﾞﾋﾞﾌﾞﾍﾞﾎﾞﾊﾟﾋﾟﾌﾟﾍﾟﾎﾟﾁｬﾁｭﾁｮﾆｬﾆｭﾆｮﾘｬﾘｭﾘｮ"
+        def full-number = "１２３４５６７８９０"
+        def full-alpha1 = "ｑｗｅｒｔｙｕｉｏｐａｓｄｆｇｈｊｋｌｚｘｃｖｂｎｍ"
+        def full-alpha2 = "ＱＷＥＲＴＹＵＩＯＰＡＳＤＦＧＨＪＫＬＺＸＣＶＢＮＭ"
+        def full-mark1 = "ー＾￥"
+        def full-mark2 = "＠「；：」、。・￥"
+        def full-mark3 = "！”＃＄％＆’（）＝～｜"
+        def full-mark4 = "‘｛＋＊｝＜＞？＿"
+        def full-katakana1 = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
+        def full-katakana2 = "ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポチャチュチョニャニュニョリャリュリョ"
+        def hiragana1 = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"
+        def hiragana2 = "がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽちゃちゅちょにゃにゅにょりゃりゅりょ"
+        def phone-number1 = "(000)000-0000"
+        def phone-number2 = "000000-0000"
+        def phone-number3 = "000-0000"
+
+        {TestCondition.assert {StringUtil.is-member? half-number}}
+        {TestCondition.assert not {StringUtil.is-member? half-number, half-number? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-alpha1}}
+        {TestCondition.assert not {StringUtil.is-member? half-alpha1, half-alpha? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-alpha2}}
+        {TestCondition.assert not {StringUtil.is-member? half-alpha2, half-alpha? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-mark1}}
+        {TestCondition.assert not {StringUtil.is-member? half-mark1, half-mark? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-mark2}}
+        {TestCondition.assert not {StringUtil.is-member? half-mark2, half-mark? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-mark3}}
+        {TestCondition.assert not {StringUtil.is-member? half-mark3, half-mark? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-mark4}}
+        {TestCondition.assert not {StringUtil.is-member? half-mark4, half-mark? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-katakana1}}
+        {TestCondition.assert not {StringUtil.is-member? half-katakana1, half-katakana? = false}}
+        {TestCondition.assert {StringUtil.is-member? half-katakana2}}
+        {TestCondition.assert not {StringUtil.is-member? half-katakana2, half-katakana? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-number}}
+        {TestCondition.assert not {StringUtil.is-member? full-number, full-number? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-alpha1}}
+        {TestCondition.assert not {StringUtil.is-member? full-alpha1, full-alpha? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-alpha2}}
+        {TestCondition.assert not {StringUtil.is-member? full-alpha2, full-alpha? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-mark2}}
+        {TestCondition.assert not {StringUtil.is-member? full-mark2, full-mark? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-mark3}}
+        {TestCondition.assert not {StringUtil.is-member? full-mark3, full-mark? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-mark4}}
+        {TestCondition.assert not {StringUtil.is-member? full-mark4, full-mark? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-katakana1}}
+        {TestCondition.assert not {StringUtil.is-member? full-katakana1, full-katakana? = false}}
+        {TestCondition.assert {StringUtil.is-member? full-katakana2}}
+        {TestCondition.assert not {StringUtil.is-member? full-katakana2, full-katakana? = false}}
+        {TestCondition.assert {StringUtil.is-member? hiragana1}}
+        {TestCondition.assert not {StringUtil.is-member? hiragana1, hiragana? = false}}
+        {TestCondition.assert {StringUtil.is-member? hiragana2}}
+        {TestCondition.assert not {StringUtil.is-member? hiragana2, hiragana? = false}}
+        {TestCondition.assert
+            {StringUtil.is-member?
+                half-number? = false, half-mark? = false,
+                reg-exp = |"^\(?(\d{3})\)?[\s.]*(\d{3})[\s.\-]*(\d{4})\s*$"|, phone-number1
+            }
+        }
+        {TestCondition.assert
+            {StringUtil.is-member?
+                half-number? = false, half-mark? = false,
+                reg-exp = |"^\(?(\d{3})\)?[\s.]*(\d{3})[\s.\-]*(\d{4})\s*$"|, phone-number2
+            }
+        }
+        {TestCondition.assert
+            not {StringUtil.is-member?
+                    half-number? = false, half-mark? = false,
+                    reg-exp = |"^\(?(\d{3})\)?[\s.]*(\d{3})[\s.\-]*(\d{4})\s*$"|, phone-number3
+                }
+        }
+        {TestCondition.assert {StringUtil.to-String null} == ""}
+        {TestCondition.assert {StringUtil.to-String 123} == "123"}
+        {TestCondition.assert {StringUtil.to-String "ABC"} == "ABC"}
+    },
+    {test-case "seireki-to-wareki",
+        let (wareki1:Wareki, nen1:int, wareki2:Wareki, nen2:int) =
+            {DateTimeUtil.seireki-to-wareki 2009}
+        {TestCondition.assert wareki1 == Wareki.heisei}
+        {TestCondition.assert nen1 == 21}
+        {TestCondition.assert wareki2 == Wareki.undefined}
+        {TestCondition.assert nen2 == -1}
+        {require-exception Exception do
+            set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1867}
+        }
+        set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1868}
+        {TestCondition.assert wareki1 == Wareki.meiji}
+        {TestCondition.assert nen1 == 1}
+        {TestCondition.assert wareki2 == Wareki.undefined}
+        {TestCondition.assert nen2 == -1}
+        set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1911}
+        {TestCondition.assert wareki1 == Wareki.meiji}
+        {TestCondition.assert nen1 == 44}
+        {TestCondition.assert wareki2 == Wareki.undefined}
+        {TestCondition.assert nen2 == -1}
+        set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1912}
+        {TestCondition.assert wareki1 == Wareki.taisyou}
+        {TestCondition.assert nen1 == 1}
+        {TestCondition.assert wareki2 == Wareki.meiji}
+        {TestCondition.assert nen2 == 45}
+        set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1925}
+        {TestCondition.assert wareki1 == Wareki.taisyou}
+        {TestCondition.assert nen1 == 14}
+        {TestCondition.assert wareki2 == Wareki.undefined}
+        {TestCondition.assert nen2 == -1}
+        set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1926}
+        {TestCondition.assert wareki1 == Wareki.syouwa}
+        {TestCondition.assert nen1 == 1}
+        {TestCondition.assert wareki2 == Wareki.taisyou}
+        {TestCondition.assert nen2 == 15}
+        set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1988}
+        {TestCondition.assert wareki1 == Wareki.syouwa}
+        {TestCondition.assert nen1 == 63}
+        {TestCondition.assert wareki2 == Wareki.undefined}
+        {TestCondition.assert nen2 == -1}
+        set (wareki1, nen1, wareki2, nen2) = {DateTimeUtil.seireki-to-wareki 1989}
+        {TestCondition.assert wareki1 == Wareki.heisei}
+        {TestCondition.assert nen1 == 1}
+        {TestCondition.assert wareki2 == Wareki.syouwa}
+        {TestCondition.assert nen2 == 64}
+    },
+    {test-case "wareki-to-seireki",
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.meiji, 1} == 1868}
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.meiji, 45} == 1912}
+        {require-exception Exception do
+            {DateTimeUtil.wareki-to-seireki Wareki.meiji, 46}
+        }
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.taisyou, 1} == 1912}
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.taisyou, 15} == 1926}
+        {require-exception Exception do
+            {DateTimeUtil.wareki-to-seireki Wareki.taisyou, 16}
+        }
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.syouwa, 1} == 1926}
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.syouwa, 64} == 1989}
+        {require-exception Exception do
+            {DateTimeUtil.wareki-to-seireki Wareki.syouwa, 65}
+        }
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.heisei, 1} == 1989}
+        {TestCondition.assert {DateTimeUtil.wareki-to-seireki Wareki.heisei, 21} == 2009}
+    },
+    {test-case "is-uruu?",
+        {TestCondition.assert {DateTimeUtil.is-uruu? 400}}
+        {TestCondition.assert not {DateTimeUtil.is-uruu? 200}}
+        {TestCondition.assert {DateTimeUtil.is-uruu? 280}}
+        {TestCondition.assert not {DateTimeUtil.is-uruu? 1}}
+        {TestCondition.assert {DateTimeUtil.is-uruu? 2000}}
+        {TestCondition.assert {DateTimeUtil.is-uruu? 2004}}
+        {TestCondition.assert not {DateTimeUtil.is-uruu? 2100}}
+    },
+    {test-case "elapsed-days",
+        def dt1 = {DateTime year = 2008, month = 1, day = 1}
+        def dt2 = {DateTime year = 2008, month = 2, day = 1}
+        def dt3 = {DateTime year = 2009, month = 2, day = 20}
+        {TestCondition.assert {DateTimeUtil.elapsed-days dt1, dt2} == 31}
+        {TestCondition.assert {DateTimeUtil.elapsed-days dt1, dt3} == 416}
+    },
+    {test-case "elapsed-hours",
+        def dt1 = {DateTime year = 2008, month = 1, day = 1, hour = 0}
+        def dt2 = {DateTime year = 2008, month = 1, day = 1, hour = 12}
+        def dt3 = {DateTime year = 2008, month = 1, day = 2, hour = 12}
+        {TestCondition.assert {DateTimeUtil.elapsed-hours dt1, dt2} == 12}
+        {TestCondition.assert {DateTimeUtil.elapsed-hours dt1, dt3} == 36}
+    },
+    {test-case "last-day",
+        def dt = {DateTime year = 2009, month = 2, day = 2}
+        {TestCondition.assert {DateTimeUtil.last-day-of-month dt} == {DateTime year = 2009, month = 2, day = 28}}
+    },
+    {test-case "business day/add/minus",
+        || business day
+        def mon = {DateTime year = 2009, month = 2, day = 2}
+        {TestCondition.assert {DateTimeUtil.japanese-day-of-week mon} == "月"}
+        {TestCondition.assert {DateTimeUtil.is-business-day? mon}}
+        def tue = {DateTime year = 2009, month = 2, day = 3}
+        {TestCondition.assert {DateTimeUtil.japanese-day-of-week tue} == "火"}
+        {TestCondition.assert {DateTimeUtil.is-business-day? tue}}
+        def wed = {DateTime year = 2009, month = 2, day = 4}
+        {TestCondition.assert {DateTimeUtil.japanese-day-of-week wed} == "水"}
+        {TestCondition.assert {DateTimeUtil.is-business-day? wed}}
+        def thr = {DateTime year = 2009, month = 2, day = 5}
+        {TestCondition.assert {DateTimeUtil.japanese-day-of-week thr} == "木"}
+        {TestCondition.assert {DateTimeUtil.is-business-day? thr}}
+        def fri = {DateTime year = 2009, month = 2, day = 6}
+        {TestCondition.assert {DateTimeUtil.japanese-day-of-week fri} == "金"}
+        {TestCondition.assert {DateTimeUtil.is-business-day? fri}}
+        def sat = {DateTime year = 2009, month = 2, day = 7}
+        {TestCondition.assert {DateTimeUtil.japanese-day-of-week sat} == "土"}
+        {TestCondition.assert not {DateTimeUtil.is-business-day? sat}}
+        def sun = {DateTime year = 2009, month = 2, day = 8}
+        {TestCondition.assert {DateTimeUtil.japanese-day-of-week sun} == "日"}
+        {TestCondition.assert not {DateTimeUtil.is-business-day? sun}}
+
+        || calculate business day in given month
+        {TestCondition.assert {DateTimeUtil.calculate-business-day sun, 3} == wed}
+        {TestCondition.assert {DateTimeUtil.calculate-business-day sun, 5} == fri}
+        {TestCondition.assert not {DateTimeUtil.calculate-business-day sun, 6} == sat}
+        {TestCondition.assert not {DateTimeUtil.calculate-business-day sun, 6} == sun}
+        {TestCondition.assert {DateTimeUtil.calculate-business-day sun, 6} == {DateTime year = 2009, month = 2, day = 9}}
+
+        || add
+        {DateTimeUtil.add mon, day = 3}
+        {TestCondition.assert mon == thr}
+
+        || minus
+        {DateTimeUtil.minus mon, day = 2}
+        {TestCondition.assert mon == tue}
+        {DateTimeUtil.minus mon, day = 1}
+        {TestCondition.assert mon != tue}
+        
+        || modify
+        {DateTimeUtil.modify mon, day = 5}
+        {TestCondition.assert mon == thr}
+
+        || calculate business day in this month or next month
+        ||{dump {DateTimeUtil.calculate-business-day-in-this-month 10}}
+        ||{dump {DateTimeUtil.calculate-business-day-in-next-month 10}}
+
+    },
+    {test-case "parse-hhmi",
+        {TestCondition.assert {TimeUtil.parse-hhmi "00:00"} == 0s}
+        {TestCondition.assert {TimeUtil.parse-hhmi "12:00"} == 12 * 60 * 60s}
+        {TestCondition.assert {TimeUtil.parse-hhmi "12:30"} == (12 * 60 * 60s + 30 * 60s)}
+        {TestCondition.assert {TimeUtil.parse-hhmi "24:00"} == 24 * 60 * 60s}
+        {require-exception Exception do
+            {TimeUtil.parse-hhmi "0000"}
+        }
+        {require-exception Exception do
+            {TimeUtil.parse-hhmi "0:00"}
+        }
+        {require-exception Exception do
+            {TimeUtil.parse-hhmi ":00"}
+        }
+        {require-exception Exception do
+            {TimeUtil.parse-hhmi "00:0"}
+        }
+        {require-exception Exception do
+            {TimeUtil.parse-hhmi "00:"}
+        }
+    },
+    {test-case "format-hhmi",
+        {TestCondition.assert {TimeUtil.format-hhmi 0s} == "00:00"}
+        {TestCondition.assert {TimeUtil.format-hhmi 12 * 60 * 60s} == "12:00"}
+        {TestCondition.assert {TimeUtil.format-hhmi (12 * 60 * 60s + 30 * 60s)} == "12:30"}
+        {TestCondition.assert {TimeUtil.format-hhmi 24 * 60 * 60s} == "24:00"}
+    },
+    {test-case "day-as-int",
+        {TestCondition.assert {TimeUtil.day-as-int 0s} == 0}
+        {TestCondition.assert {TimeUtil.day-as-int 12 * 60 * 60s} == 0}
+        {TestCondition.assert {TimeUtil.day-as-int 24 * 60 * 60s - 1s} == 0}
+        {TestCondition.assert {TimeUtil.day-as-int 24 * 60 * 60s} == 1}
+        {TestCondition.assert {TimeUtil.day-as-int 24 * 60 * 60s + 1s} == 1}
+        {TestCondition.assert {TimeUtil.day-as-int 48 * 60 * 60s} == 2}
+    },
+    {test-case "hour-as-int",
+        {TestCondition.assert {TimeUtil.hour-as-int 0s} == 0}
+        {TestCondition.assert {TimeUtil.hour-as-int 12 * 60 * 60s} == 12}
+        {TestCondition.assert {TimeUtil.hour-as-int (12 * 60 * 60s + 30 * 60s)} == 12}
+        {TestCondition.assert {TimeUtil.hour-as-int 24 * 60 * 60s} == 24}
+    },
+    {test-case "minute-as-int",
+        {TestCondition.assert {TimeUtil.minute-as-int 0s} == 0}
+        {TestCondition.assert {TimeUtil.minute-as-int (12 * 60 * 60s + 30 * 60s)} == 30}
+        {TestCondition.assert {TimeUtil.minute-as-int 24 * 60 * 60s} == 0}
+    },
+    {test-case "string-to-distance",
+        {TestCondition.assert {DistanceUtil.to-Distance "0m"} == 0m}
+        {TestCondition.assert {DistanceUtil.to-Distance "0meter"} == 0m}
+        {TestCondition.assert {DistanceUtil.to-Distance "2.5km"} == 2.5km}
+        {TestCondition.assert {DistanceUtil.to-Distance "-10centimeter"} == -10cm}
+        {TestCondition.assert {DistanceUtil.to-Distance "  0m  "} == 0m}
+        {require-exception Exception do
+            {DistanceUtil.to-Distance ""}
+        }
+        {require-exception Exception do
+            {DistanceUtil.to-Distance "1"}
+        }
+        {require-exception Exception do
+            {DistanceUtil.to-Distance "1s"}
+        }
+        {require-exception Exception do
+            {DistanceUtil.to-Distance "1m x"}
+        }
+    },
+    {test-case "string-to-time",
+        {TestCondition.assert {TimeUtil.to-Time "0s"} == 0s}
+        {TestCondition.assert {TimeUtil.to-Time "2days"} == 2day}
+        {TestCondition.assert {TimeUtil.to-Time "2.5ms"} == 2.5ms}
+        {TestCondition.assert {TimeUtil.to-Time "-10millisecond"} == -10ms}
+        {TestCondition.assert {TimeUtil.to-Time "  0s  "} == 0s}
+        {require-exception Exception do
+            {TimeUtil.to-Time ""}
+        }
+        {require-exception Exception do
+            {TimeUtil.to-Time "1"}
+        }
+        {require-exception Exception do
+            {TimeUtil.to-Time "1m"}
+        }
+        {require-exception Exception do
+            {TimeUtil.to-Time "1s x"}
+        }
+    },
+    {test-case "visit-super-classes",
+        || class hierarchy:
+        ||  Top
+        ||   ├ Left   ┐
+        ||   └ Middle ┼ Bottom
+        ||     Right  ┘
+        def classes = {{Array-of ClassType}}
+        || 1) visit all super classes
+        {visit-super-classes
+            Bottom,
+            {fn t => {classes.append t} true}
+        }
+        {TestCondition.assert
+            {classes.equal?
+                {{Array-of ClassType}
+                    Left, Top, Object,
+                    Middle,
+                    Right
+                }
+            }
+        }
+        || 2) stop if 'Middle' is found
+        {classes.clear}
+        {visit-super-classes
+            Bottom,
+            {fn t =>
+                {classes.append t}
+                t != Middle
+            }
+        }
+        {TestCondition.assert
+            {classes.equal?
+                {{Array-of ClassType}
+                    Left, Top, Object, Middle
+                }
+            }
+        }
+        || 3) ignore 'Top' and 'Object'
+        {classes.clear}
+        {visit-super-classes
+            Bottom,
+            {fn t => {classes.append t} true},
+            ignore-classes = {{Set-of ClassType} Top, Object}
+        }
+        {TestCondition.assert
+            {classes.equal?
+                {{Array-of ClassType}
+                    Left, Middle, Right
+                }
+            }
+        }
+    },
+    {test-case "new instance",
+        def foo = {new-instance Foo, "constructor"}
+        {TestCondition.assert-isa Foo, foo}
+        {TestCondition.assert foo.str == "constructor"}
+        {TestCondition.assert-isa Foo, {new-instance Foo, maker-name = "create-foo"}}
+    },
+
+    || switch macro matched string
+    {test-case "regexp-switch",
+        def str1 = "abcdef"
+        def v1 =
+            {regexp-switch str1
+             case "^a.*ef" do 1
+             case "^xy.*" do 2
+             else 3
+            }
+        {TestCondition.assert v1 == 1}
+
+        def str2 = "xyzdef"
+        def v2 =
+            {regexp-switch str2
+             case "^a.*ef" do 1
+             case "^xy.*" do 2
+             else 3
+            }
+        {TestCondition.assert v2 == 2}
+        
+        def str3 = "xxxxxx"
+        def v3 =
+            {regexp-switch str3
+             case "^a.*ef" do 1
+             case "^xy.*" do 2
+             else 3
+            }
+        {TestCondition.assert v3 == 3}
+
+        def str4 = "abcdef"
+        def v4 =
+            {regexp-switch str4
+             case "^ab.*" do 1
+             case "^a.*" do 2
+             else 3
+            }
+        {TestCondition.assert v4 == 1}
+    },
+    {test-case "prefix-switch",
+        def str1 = "abcdef"
+        def v1 =
+            {regexp-switch str1
+             case "abc" do 1
+             case "xyz" do 2
+             else 3
+            }
+        {TestCondition.assert v1 == 1}
+
+        def str2 = "xyzdef"
+        def v2 =
+            {prefix-switch str2
+             case "abc" do 1
+             case "xyz" do 2
+             else 3
+            }
+        {TestCondition.assert v2 == 2}
+        
+        def str3 = "xxxxxx"
+        def v3 =
+            {prefix-switch str3
+             case "abc" do 1
+             case "xyz" do 2
+             else 3
+            }
+        {TestCondition.assert v3 == 3}
+
+        def str4 = "abcdef"
+        def v4 =
+            {prefix-switch str4
+             case "ABC" do 1
+             case "XYZ" do 2
+             else 3
+            }
+        {TestCondition.assert v4 == 3}
+
+        def v5 =
+            {prefix-switch str4, ignore-case? = true
+             case "ABC" do 1
+             case "XYZ" do 2
+             else 3
+            }
+        {TestCondition.assert v5 == 1}
+
+        def v6 =
+            {prefix-switch str4, ignore-case? = true
+             case "ABC" do 1
+             case "AB" do 2
+             else 3
+            }
+        {TestCondition.assert v6 == 1}
+
+
+        {prefix-switch str4, ignore-case? = true
+         case "ABC" do {TestCondition.succeed}
+         case "AB" do {TestCondition.succeed}
+         else {TestCondition.fail}
+        }
+    },
+    {test-case "suffix-switch",
+        def str1 = "defabc"
+        def v1 =
+            {suffix-switch str1
+             case "abc" do 1
+             case "xyz" do 2
+             else 3
+            }
+        {TestCondition.assert v1 == 1}
+
+        def str2 = "defxyz"
+        def v2 =
+            {suffix-switch str2
+             case "abc" do 1
+             case "xyz" do 2
+             else 3
+            }
+        {TestCondition.assert v2 == 2}
+        
+        def str3 = "xxxxxx"
+        def v3 =
+            {suffix-switch str3
+             case "kkk", "abc" do 1
+             case "f", "xyz" do 2
+             else 3
+            }
+        {TestCondition.assert v3 == 3}
+
+        def str4 = "defabc"
+        def v4 =
+            {suffix-switch str4
+             case "ABC" do 1
+             case "XYZ" do 2
+             else 3
+            }
+        {TestCondition.assert v4 == 3}
+
+        def v5 =
+            {suffix-switch str4, ignore-case? = true
+             case "ABC" do 1
+             case "XYZ" do 2
+             else 3
+            }
+        {TestCondition.assert v5 == 1}
+
+        def v6 =
+            {suffix-switch str4, ignore-case? = true
+             case "ABC", "ZZ" do 1
+             case "AB", "DD" do 2
+             else 3
+            }
+        {TestCondition.assert v6 == 1}
+    },
+
+    {test-case "range switch",
+        def p1 =
+            {proc {v:any}:String
+                {return
+                    {range-switch v
+                        case 0 to 20 do "Too bad"
+                        case 21 to 25, 26, 27 to 50 do "Bad"
+                        case 51, 52 to 75 do "Not bad"
+                        case 75 to 99 do "Good"
+                        case 100 do "Excellent"
+                        case 101 to 200, 400 to 600 do "Strange!?"
+                        else "X"
+                    }
+                }
+            }
+        
+        {TestCondition.assert {p1 0} == "Too bad"}
+        {TestCondition.assert {p1 10} == "Too bad"}
+        {TestCondition.assert {p1 20} == "Too bad"}
+        {TestCondition.assert {p1 25} == "Bad"}
+        {TestCondition.assert {p1 26} == "Bad"}
+        {TestCondition.assert {p1 50} == "Bad"}
+        {TestCondition.assert {p1 51} == "Not bad"}
+        {TestCondition.assert {p1 75} == "Not bad"} || x Good
+        {TestCondition.assert {p1 80} == "Good"}
+        {TestCondition.assert {p1 99} == "Good"}
+        {TestCondition.assert {p1 100} == "Excellent"}
+        {TestCondition.assert {p1 101} == "Strange!?"}
+        {TestCondition.assert {p1 200} == "Strange!?"}
+        {TestCondition.assert {p1 300} == "X"}
+        {TestCondition.assert {p1 400} == "Strange!?"}
+        {TestCondition.assert {p1 600} == "Strange!?"}
+        {TestCondition.assert {p1 601} == "X"}
+        {TestCondition.assert {p1 -1} == "X"}
+        {TestCondition.assert {p1 21.1} == "Bad"}
+        {TestCondition.assert {p1 20.1} == "X"}
+
+        def p2 =
+            {proc {v:any}:String
+                {return
+                    {range-switch v
+                        case 0 to 20.9 do "Too bad"
+                        case 21 to 26.9, 27 to 50.9 do "Bad"
+                        case 51 to 75.9 do "Not bad"
+                        case 75 to 99.9 do "Good"
+                        case 100 do "Excellent"
+                        case 101 to 200.9, 400 to 600.9 do "Strange!?"
+                        else "X"
+                    }
+                }
+            }
+        {TestCondition.assert {p2 0} == "Too bad"}
+        {TestCondition.assert {p2 10} == "Too bad"}
+        {TestCondition.assert {p2 20} == "Too bad"}
+        {TestCondition.assert {p2 25} == "Bad"}
+        {TestCondition.assert {p2 26} == "Bad"}
+        {TestCondition.assert {p2 50} == "Bad"}
+        {TestCondition.assert {p2 51} == "Not bad"}
+        {TestCondition.assert {p2 75} == "Not bad"} || x Good
+        {TestCondition.assert {p2 80} == "Good"}
+        {TestCondition.assert {p2 99} == "Good"}
+        {TestCondition.assert {p2 100} == "Excellent"}
+        {TestCondition.assert {p2 101} == "Strange!?"}
+        {TestCondition.assert {p2 200} == "Strange!?"}
+        {TestCondition.assert {p2 300} == "X"}
+        {TestCondition.assert {p2 400} == "Strange!?"}
+        {TestCondition.assert {p2 600} == "Strange!?"}
+        {TestCondition.assert {p2 601} == "X"}
+        {TestCondition.assert {p2 -1} == "X"}
+        {TestCondition.assert {p2 21.1} == "Bad"}
+        {TestCondition.assert {p2 20.1} == "Too bad"}
+    }
+}
+
+
+||| for the test of 'visit-super-classes'
+{define-class shared Top}
+{define-class Left {inherits Top}}
+{define-class Middle {inherits Top}}
+{define-class Right}
+{define-class Bottom {inherits Left, Middle, Right}}
+
+|| for new-instance method
+{define-class public Foo
+  field public-get str:String
+  {constructor public {default str:String}
+    set self.str = str
+  }
+  {factory public {create-foo}:Foo
+    {return {Foo "factory"}}
+  }
+}
+  

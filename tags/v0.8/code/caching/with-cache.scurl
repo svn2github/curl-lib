@@ -1,0 +1,72 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{doc-next
+    {purpose
+        キャッシュに指定したキーと値が存在する場合は、その値を返します。
+        存在しない場合は、body部分を実行及び値をキャッシュにセットし、値を返します。
+    }
+    {details
+        以下はサンプルになります。このサンプルでは、キャッシュ"cache1"にあるキー名"key1"の値が
+        もし存在すれば、そのままキャッシュからvに代入します。
+        もし存在しない場合は、with-cacheのボディ内の処理を実行し、
+        結果の値を"key1"にセット及びvに値を代入します。
+        {curl-code
+            def v = {with-cache "key1" of "cache1" do
+                        {do-something}
+                    }
+            {output v}
+        }
+        上記サンプルは以下のコードと同等です。
+        {curl-code
+            || もしcache1が存在しなければ、エラーが発生します。
+            def cache = {{CacheManager.get-instance}.get-cache "cache1"}
+            || "cache1"キャッシュに、"key1"の値が存在する場合、その値を返し、
+            || 存在しない場合（もしくは保存期間が過ぎている場合）は、
+            || body内の処理を実行及びキャッシュに値をセットし、その値を返します。
+            def v = 
+                {if-non-null x = cache["key1"] then
+                    x
+                 else
+                    set cache["key1"] = {do-something}
+                    cache["key1"]
+                }
+            {output v}
+        }
+    }
+}
+{define-macro public {with-cache
+                         ?key:{literal String}
+                         of
+                         ?cache:{literal String}
+                      do
+                         ?body:tokens
+                     }
+
+    {return
+        {expand-template
+           def cache = {{CacheManager.get-instance}.get-cache ?cache}
+            {if-non-null v = cache[?key] then
+                v
+             else
+                set cache[?key] = {value ?body}
+                cache[?key]
+            }
+        }
+    }
+}

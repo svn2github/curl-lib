@@ -1,0 +1,94 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+|| TODO: 要検討
+||--{import ClassUtil from COM.CURL.LIB.LANG}
+||--
+||--|| ResourceBundle
+||--{define-class public abstract ResourceBundle
+||--
+||--  field public-get private-set locale:Locale = {uninitialized-value-for-type Locale}
+||--  
+||--  {factory public {get-bundle
+||--                      base:any, || URL or String(package + class)
+||--                      locale:Locale = {get-host-locale}
+||--                  }:ResourceBundle
+||--
+||--    {if base isa Url then
+||--        {if-non-null u = {PropertyResourceBundle.find-locale-file base, locale} then
+||--            {return {PropertyResourceBundle u, locale = locale}}
+||--        }
+||--    }
+||--    {if base isa String then
+||--        || TODO: new instance of extended BundleResouce class
+||--        def rb = {ClassUtil.new-object-from-string base} asa ResourceBundle
+||--        set rb.locale = locale
+||--        {return rb}
+||--    }
+||--    {unreachable}
+||--  }
+||--
+||--  {getter public abstract {contents}:{HashTable-of String, any}}
+||--
+||--  {method public open {get key:String}:any
+||--    {return self.contents[key]}
+||--  }
+||--
+||--  {method public open {set key:String, value:any}:void
+||--    {self.contents.set key, value}
+||--  }
+||--}
+||--
+||--|| PropertyResourceBundle
+||--{define-class public open PropertyResourceBundle
+||--  {inherits ResourceBundle}
+||--
+||--  def package EXTENSION = ".properties"
+||--  field private props:Properties
+||--  
+||--  {constructor package {default
+||--                           prop-file:Url,
+||--                           locale:Locale = {get-host-locale}
+||--                       }
+||--    set self.props = {Properties}
+||--    {self.props.load {read-open prop-file}}
+||--  }
+||--  
+||--  {getter public open {contents}:{HashTable-of String, any}
+||--    {return self.props}
+||--  }
+||--
+||--
+||--  || - - package - -
+||--  {define-proc package {find-locale-file url:Url, locale:Locale}:#Url
+||--    def base = url.basename
+||--    def locale-name = {locale.name.replace-clone "-", "_"}
+||--    def ext = PropertyResourceBundle.EXTENSION
+||--　　　　|| FIXME:サーバ配備した際、これらを検索する？（403エラーが発生する？）
+||--    || 1. <resource>.properties
+||--    {if {local-file-exists? {url.set-basename base & ext}} then
+||--        {return {url.set-basename base & ext}}
+||--    || 2. <resource>_locale.properties || e.g) resource_ja.properties
+||--     elseif {local-file-exists? {url.set-basename base & "_" & locale-name & ext}} then
+||--        {return {url.set-basename base & "_" & locale-name & ext}}
+||--    }
+||--    {return null}
+||--  }
+||--}
+||--
+||--

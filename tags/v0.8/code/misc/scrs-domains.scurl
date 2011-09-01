@@ -1,0 +1,203 @@
+{curl-file-attributes character-encoding = "utf8"}
+
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+|||
+|||     http://www.apache.org/licenses/LICENSE-2.0
+|||
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors D.TIAN
+|||
+
+{import * from CURL.GUI.DIALOGS} || for popup-message used by StreamCsvRecordSet
+{import * from CURL.GUI.CONTROLS} || for ScrollBox used by StreamCsvRecordSet
+{import * from CURL.GUI.BASE} || for VBox used by StreamCsvRecordSet
+{import * from CURL.GUI.TEXT-FORMATS} || for pre used by StreamCsvRecordSet
+
+||--       "DateTime", {StandardDateTimeDomain},
+||--        "Date", {StandardDateDomain},
+||--        "Time", {StandardTimeDomain},
+||--        "String", {StandardStringDomain},
+||--        "int", {StandardIntDomain},
+||--        "double", {StandardDoubleDomain},
+||--        "int64", {StandardInt64Domain},
+||--        "bool", {StandardBoolDomain},
+||--        "any", {StandardAnyDomain},
+||--        "float",{StandardFloatDomain},
+||--        "char",{StandardCharDomain},
+||--        "ByteArray", {StandardByteArrayDomain}
+
+{define-class public PStandardDateDomain {inherits StandardDateDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+
+  {method public {format x:any}:String
+    let rslt:String = ""
+    {type-switch x
+     case dt:DateTime do
+        set rslt = dt.info.iso-date & " " & dt.info.iso-time
+     else
+        set rslt = {String x}
+    }
+
+    {return rslt}
+  }
+}
+
+{define-class public PStandardDateTimeDomain {inherits StandardDateTimeDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+
+  {method public {format x:any}:String
+    let rslt:String = ""
+    {type-switch x
+     case dt:DateTime do
+        set rslt = dt.info.iso-full
+     else
+        set rslt = {String x}
+    }
+
+    {return rslt}
+  }
+}
+
+{define-class public PStandardTimeDomain {inherits StandardTimeDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+{define-class public PStandardStringDomain {inherits StandardStringDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+{define-class public PStandardIntDomain {inherits StandardIntDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+
+{define-class public PStandardDoubleDomain {inherits StandardDoubleDomain}
+  field _precision:int
+  {constructor public {default _precision:int = 6, ...}
+    set self._precision = _precision
+    {construct-super {splice ...}}
+  }
+
+  {method public {format x:any}:String
+    let rslt:String = ""
+    {type-switch x
+     case d:double do
+        set rslt =  {format "%."& self._precision &  "f", x}
+     case f:float do
+        set rslt =  {format "%."& self._precision &  "f", x}
+     else
+        set rslt = {String x}
+    }
+    {return rslt}
+  }
+}
+
+{define-class public PStandardInt64Domain {inherits StandardInt64Domain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+
+{define-class public PStandardBoolDomain {inherits StandardBoolDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+{define-class public PStandardAnyDomain {inherits StandardAnyDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+{define-class public PStandardFloatDomain {inherits StandardFloatDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+{define-class public PStandardCharDomain {inherits StandardCharDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+{define-class public PStandardByteArrayDomain {inherits StandardByteArrayDomain}
+  {constructor public {default ...}
+    {construct-super {splice ...}}
+  }
+}
+
+{doc-next
+    {purpose
+        データ型に合ったドメインを自動生成する
+    }
+    {notes
+        TODO: DOCUMENT TO BE FINISHED
+    }
+}
+{define-proc public {get-domain-instance
+                        _type:String,
+                        _max-digit:int,
+                        _min-digit:int = 0,
+                        _precision:int = 6
+                    }:Domain
+    {switch _type
+     case  "String" do
+        {return
+            {PStandardStringDomain
+                max-chars =_max-digit
+            }
+        }
+     case "int64" do
+        {return
+            {PStandardInt64Domain
+                max-allowable =
+                    {if _max-digit < 0 then
+                        null
+                     else
+                        {pow 10, _max-digit} - 1
+                    }
+                |#
+                                min-allowable =
+                                        {if _min-digit <= 0 then
+                                                null
+                                        else
+                                                {pow 10, (_max-digit - 1)}
+                                        },#|
+            }
+        }
+     case "double" do
+        {return
+
+            {PStandardDoubleDomain
+                max-allowable =
+                    {if _max-digit < 0 then
+                        null
+                     else
+                        {pow 10, _max-digit} - 1
+                    },
+                _precision = {if _precision == -1 then 6 else _precision}
+            }
+        }
+     case "Date" do
+        {return {PStandardDateDomain}}
+     case "DateTime" do
+        {return {PStandardDateTimeDomain}}
+     else
+        {return {PStandardStringDomain}}
+    }
+}

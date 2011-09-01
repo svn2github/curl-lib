@@ -1,0 +1,30 @@
+|| **********************************************************
+|| *** THIS FILE IS AUTOMATICALLY UPDATED BY THE CURL IDE ***
+|| ***              DO NOT MODIFY IT BY HAND              ***
+|| **********************************************************
+{project
+    version = 3,
+    manifest-location = "manifest.mcurl",
+    api-version = "8.0",
+    compiler-directives = "careful? = true",
+    use-style-sheets? = true,
+    project-look-and-feel = "default-style-sheet",
+    style-package-name = "COM.CURL.GUI.STYLED-CONTROLS",
+    style-sheet-name = "DEFAULT-STYLE-SHEET",
+    allow-hidden-access? = false,
+    debug-compile? = false,
+    make-guide-index? = false,
+    {target
+        name = "deploy",
+        target-url-name = "deploy-default",
+        certificate = "",
+        {resource-transform "run.curl\u0000file\u0000run.curl", copy? = true},
+        {resource-transform "temporary-test.curl\u0000file\u0000temporary-test.curl", copy? = true},
+        {resource-transform "classic-project.cprj\u0000file\u0000classic-project.cprj", copy? = true},
+        {resource-transform "project.cprj\u0000file\u0000project.cprj", copy? = true},
+        {assembly-transform "COM.CURL.CDU", action = "use-specified-location", relocate-path = "../lib/CDU/manifest.mcurl"},
+        {resource-transform "test-cases\u0000directory\u0000test-cases", copy? = true},
+        {assembly-transform "COM.CURL.LIB", action = "use-specified-location", relocate-path = "../code/manifest.mcurl"}
+    },
+    {file-setting "run.curl", start-file? = true}
+}
