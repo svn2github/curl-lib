@@ -1,0 +1,415 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Izumi Kashiwagi
+|||
+
+{import get-backtrace from CURL.RUNTIME.DEBUGGER-SUPPORT}
+
+{def LogFormat =
+    {proc-type
+        {String, String, String, String, String, String, String, String, LogLevel, String, #any, #Type, ...}:String
+    }
+}
+
+{doc-next
+    {purpose ログレベルを定義します。}
+    {details
+        ログレベルは次の通りです。:
+        {itemize
+            {item {ctext trace}:トレース（最も軽微）}
+            {item {ctext debug}:デバッグ}
+            {item {ctext info} :情報}
+            {item {ctext warn} :警告}
+            {item {ctext error}:エラー}
+            {item {ctext fatal}:致命的}
+            {item {ctext none} :出力なし}
+        }
+    }
+}
+{define-enum public LogLevel
+    trace = "trace",
+    debug = "debug",
+    info  = "info",
+    warn  = "warn",
+    error = "error",
+    fatal = "fatal",
+    none  = "none"
+}
+
+{doc-next
+    {purpose ログの共通設定を行います。}
+    {parameter level, ログレベル。}
+    {parameter log-file-url, ログを出力するファイルのurl。指定しない場合はコンソールに出力されます。}
+    {parameter output-to-console?, コンソールにログを出力するかどうか。}
+    {parameter output-backtrace?, スタックのバックとレースを出力するかどうか。}
+    {parameter format,
+        出力するフォーマット。指定しない場合は {docref LogFactory.default-format} が使用されます。
+    }
+    {notes このプロシージャを複数回呼び出すと、設定が上書かれます。}
+}
+{define-proc public {initialize-log
+                        level:LogLevel = LogLevel.info,
+                        log-file-url:#Url = null,
+                        output-to-console?:bool = true,
+                        output-backtrace?:bool = true,
+                        format:LogFormat = LogFactory.default-format
+                    }:void
+    set LogFactory.level = level
+    set LogFactory.log-file-url = log-file-url
+    set LogFactory.output-to-console? = output-to-console?
+    set LogFactory.output-backtrace? = output-backtrace?
+    set LogFactory.format = format
+}
+
+{doc-next {purpose {docref Log} オブジェクトを生成します。}}
+{define-class public LogFactory
+  
+  {doc-next {purpose ログのレベル。}}
+  let package level:LogLevel
+  
+  {doc-next {purpose ログのフォーマット。}}
+  let package format:LogFormat =
+      {uninitialized-value-for-type LogFormat}
+  
+  {doc-next {purpose ログを出力する {docref Url} 。}}
+  let package log-file-url:#Url
+  
+  {doc-next {purpose ログをコンソールに出力するかどうか。}}
+  let package output-to-console?:bool
+  
+  {doc-next {purpose スタックのバックトレースを出力するかどうか。}}
+  let package output-backtrace?:bool
+
+  {doc-next
+    {purpose {docref Log} オブジェクトを生成します。}
+    {parameter type, 型をログに明記したい場合、その型。クラスの型など。}
+    {notes {bold color = "red", プロシージャの場合どうする？}}
+  }
+  {factory public {get-log type:#Type = null}:Log
+    def log = {Log}
+    set log.type = type
+    {return log}
+  }
+
+  {doc-next
+    {purpose ログを出力するフォーマットを指定します。}
+    {parameter time-stamp, YYYY/MM/DD hh:mm:ss:mmm}
+    {parameter year, 年}
+    {parameter month, 月}
+    {parameter day, 日}
+    {parameter hour, 時}
+    {parameter minute, 分}
+    {parameter second, 秒}
+    {parameter millisecond, ミリ秒}
+    {parameter level, ログレベル}
+    {parameter message, 出力メッセージ}
+    {parameter throwable, 例外}
+    {parameter type, 型}
+  }
+  {define-proc public {default-format
+                          time-stamp:String,
+                          year:String,
+                          month:String,
+                          day:String,
+                          hour:String,
+                          minute:String,
+                          second:String,
+                          millisecond:String,
+                          level:LogLevel,
+                          message:String,
+                          throwable:#any,
+                          type:#Type,
+                          ...
+                      }:String
+    let level-str:String = {format "[%s]", level.value}
+    {while level-str.size < 7 do
+        set level-str = level-str & " "
+    }
+    def throwable-str = {if throwable isa Exception then
+                            throwable & " - "
+                         else
+                            ""
+                        }
+    def type-str = {if-non-null type then
+                       type.name & " - "
+                    else
+                       ""
+                   }
+    {return
+        {format "%s#%s# - %s%s%s", level-str, time-stamp, type-str, throwable-str, message, {splice ...}}
+    }
+  }
+}
+
+{doc-next {purpose ログ処理を行います。}}
+{define-class public Log {inherits LogFactory}
+
+  {doc-next {purpose 型。}}
+  field private-get protected-set type:#Type
+  
+  {doc-next {purpose ログオブジェクトを初期化します。}}
+  {constructor package {default}}
+  
+  {doc-next
+    {purpose traceログレベルでメッセージをログ出力します。}
+    {parameter message, 出力するメッセージ。}
+    {parameter throwable, 出力する例外。}
+  }
+  {method public {trace message:String, throwable:#any = null}:void
+    {self.output-log LogLevel.trace, message, throwable}
+  }
+
+  {doc-next
+    {purpose debugログレベルでメッセージをログ出力します。}
+    {parameter message, 出力するメッセージ。}
+    {parameter throwable, 出力する例外。}
+  }
+  {method public {debug message:String, throwable:#any = null}:void
+    {self.output-log LogLevel.debug, message, throwable}
+  }
+
+  {doc-next
+    {purpose infoログレベルでメッセージをログ出力します。}
+    {parameter message, 出力するメッセージ。}
+    {parameter throwable, 出力する例外。}
+  }
+  {method public {info message:String, throwable:#any = null}:void
+    {self.output-log LogLevel.info, message, throwable}
+  }
+  
+  {doc-next
+    {purpose warnログレベルでメッセージをログ出力します。}
+    {parameter message, 出力するメッセージ。}
+    {parameter throwable, 出力する例外。}
+  }
+  {method public {warn message:String, throwable:#any = null}:void
+    {self.output-log LogLevel.warn, message, throwable}
+  }
+
+  {doc-next
+    {purpose errorログレベルでメッセージをログ出力します。}
+    {parameter message, 出力するメッセージ。}
+    {parameter throwable, 出力する例外。}
+  }
+  {method public {error message:String, throwable:#any = null}:void
+    {self.output-log LogLevel.error, message, throwable}
+  }
+
+  {doc-next
+    {purpose fatalログレベルでメッセージをログ出力します。}
+    {parameter message, 出力するメッセージ。}
+    {parameter throwable, 出力する例外。}
+  }
+  {method public {fatal message:String, throwable:#any = null}:void
+    {self.output-log LogLevel.fatal, message, throwable}
+  }  
+
+  {doc-next
+    {purpose
+        メッセージをログ出力します。ログ出力の {docref LogFactory.log-file-url} が指定されている場合は
+        ファイルに出力します。
+        {docref LogFactory.output-to-console?} が true の場合はコンソールに出力します。
+    }
+    {parameter level, メッセージのログレベル。}
+    {parameter message, 出力するメッセージ。}
+    {parameter throwable, 出力する例外。}
+  }
+  {method private {output-log level:LogLevel, message:String, throwable:#any}:void
+    {if level.index < LogFactory.level.index then
+        {return}
+    }
+    def dateTime = {DateTime}
+    def strTimeStamp = {format 
+                           "%4d/%02d/%02d %02d:%02d:%02d.%03d", 
+                           dateTime.info.year, 
+                           dateTime.info.month,
+                           dateTime.info.day,
+                           dateTime.info.hour,
+                           dateTime.info.minute,
+                           dateTime.info.second,
+                           dateTime.info.millisecond
+                       }
+    set message = {LogFactory.format
+                      strTimeStamp,
+                      {format "%d", dateTime.info.year}, 
+                      {format "%d", dateTime.info.month},
+                      {format "%d", dateTime.info.day},
+                      {format "%d", dateTime.info.hour},
+                      {format "%d", dateTime.info.minute},
+                      {format "%d", dateTime.info.second},
+                      {format "%d", dateTime.info.millisecond},
+                      level,
+                      message,
+                      throwable,
+                      self.type
+                  }
+    {if-non-null log-url = LogFactory.log-file-url then
+        {with-open-streams tos = {append-open log-url} do
+            {tos.write-one-string message & "\n"}
+            {if-non-null throwable then
+                {tos.write-one-string self.back-trace}
+            }
+        }
+    }
+    {if LogFactory.output-to-console? then 
+        {output message}
+        {if-non-null throwable then
+            {output self.back-trace}
+        }
+    }
+  }
+
+  {doc-next
+    {purpose スタックのバックトレース。}
+    {return-vals スタックのバックトレース。}
+  }
+  {getter private {back-trace}:String
+    {if LogFactory.output-backtrace? then
+        {return
+            {get-backtrace}
+        }
+     else
+        {return ""}
+    }
+  }
+  
+  {doc-next
+    {purpose traceレベルのログ処理が現在有効かどうかチェックします。}
+    {return-vals traceレベルのログ処理が現在有効かどうか。}
+  }
+  {getter public {is-trace-enabled?}:bool
+    {return
+        LogLevel.trace.index >= LogFactory.level.index
+    }
+  }
+
+  {doc-next
+    {purpose debugレベルのログ処理が現在有効かどうかチェックします。}
+    {return-vals debugレベルのログ処理が現在有効かどうか。}
+  }
+  {getter public {is-debug-enabled?}:bool
+    {return
+        LogLevel.debug.index >= LogFactory.level.index
+    }
+  }
+
+  {doc-next
+    {purpose infoレベルのログ処理が現在有効かどうかチェックします。}
+    {return-vals infoレベルのログ処理が現在有効かどうか。}
+  }
+  {getter public {is-info-enabled?}:bool
+    {return
+        LogLevel.info.index >= LogFactory.level.index
+    }
+  }
+  
+  {doc-next
+    {purpose warnレベルのログ処理が現在有効かどうかチェックします。}
+    {return-vals warnレベルのログ処理が現在有効かどうか。}
+  }
+  {getter public {is-warn-enabled?}:bool
+    {return
+        LogLevel.warn.index >= LogFactory.level.index
+    }
+  }
+
+  {doc-next
+    {purpose errorレベルのログ処理が現在有効かどうかチェックします。}
+    {return-vals errorレベルのログ処理が現在有効かどうか。}
+  }
+  {getter public {is-error-enabled?}:bool
+    {return
+        LogLevel.error.index >= LogFactory.level.index
+    }
+  }
+
+  {doc-next
+    {purpose fatalレベルのログ処理が現在有効かどうかチェックします。}
+    {return-vals fatalレベルのログ処理が現在有効かどうか。}
+  }
+  {getter public {is-fatal-enabled?}:bool
+    {return
+        LogLevel.fatal.index >= LogFactory.level.index
+    }
+  }
+}
+
+||--{doc-next
+||--    {purpose
+||--        {docref Log} のシングルトンバージョン。
+||--    }
+||--}
+||--{define-class public SingletonLog {inherits Log}
+||--  
+||--  {doc-next
+||--    {purpose
+||--        シングルトンのオブジェクト。
+||--    }
+||--  }
+||--  let package singleton:#SingletonLog
+||--  
+||--  {doc-next
+||--    {purpose
+||--        内部使用のコンストラクタ。
+||--    }
+||--  }
+||--  {constructor private {internal ...}
+||--    {construct-super {splice ...}}
+||--  }
+||--  
+||--  {doc-next
+||--    {purpose
+||--        シングルトンのオブジェクト。
+||--    }
+||--    {parameter level,
+||--        ログレベル。
+||--    }
+||--    {parameter LogFactory.log-file-url,
+||--        ログを出力するファイルのurl。指定しない場合はコンソールに出力されます。
+||--    }
+||--    {parameter output-to-console?,
+||--        コンソールにログを出力するかどうか。
+||--    }
+||--    {parameter output-backtrace?,
+||--        スタックのバックトレースを出力するかどうか。
+||--    }
+||--    {parameter format,
+||--        出力するフォーマット。指定しない場合は {docref LogFactory.default-format} が使用されます。
+||--    }
+||--    {notes
+||--        最初の設定が使用されるので、二回目以降パラーメタを設定しても無効となります。
+||--    }
+||--  }
+||--  {factory public {default 
+||--                      level:LogLevel = LogLevel.info,
+||--                      log-file-url:#Url = null,
+||--                      output-to-console?:bool = true,
+||--                      output-backtrace?:bool = true,
+||--                      format:LogFormat = LogFactory.default-format
+||--                  }:SingletonLog
+||--    {if SingletonLog.singleton == null then
+||--        set SingletonLog.singleton =
+||--            {SingletonLog.internal 
+||--                level = level,
+||--                log-file-url = log-file-url,
+||--                output-to-console? = output-to-console?,
+||--                output-backtrace? = output-backtrace?,
+||--                format = format
+||--            }
+||--    }    
+||--    {return {non-null SingletonLog.singleton}}
+||--  }
+||--}

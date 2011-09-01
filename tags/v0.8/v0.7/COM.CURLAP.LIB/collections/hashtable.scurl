@@ -1,0 +1,92 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{doc-next
+    {purpose
+        引数から型パラメータを推測して適切な {ctext {{docref Array-of} {metavar type}}}
+        オブジェクトを返します。
+    }
+    {details
+        {curl-code
+            def h1 = {hashtable "key1", 1, "key2", 2}
+            || == {{HashTable-of String, int} "key1", 1, "key2", 2}
+
+            def h2 = {hashtable "key1", 1, "key2", true}
+            || == {HashTable-of String, any}
+
+            def ht3 = {hashtable {TextField}, 1, {PasswordField}, 2, {ComboBox}, 3}
+            || == {HashTable-of {MultiUIValueControlFrame-of String}, int}
+        }
+    }
+}
+{define-syntax public {hashtable
+                          ?args:{bounded-comma-sequence
+                                    1, infinity, ?:expression
+                                }
+                      }
+    def (kt, vt) = {infer-common-type-hack-for-hashtable syntax-env, args}
+    {return
+        {expand-template
+            {new {HashTable-of ?{Literal kt}, ?{Literal vt}}, ?args}
+        }
+    }
+}
+
+{define-proc {infer-common-type-hack-for-hashtable
+                 syntax-env:SyntaxEnv,
+                 exprs:SourceSequence
+             }:(Type, Type)
+    {if exprs.size == 2 then
+        {return {syntax-env.type-of exprs[0]}, {syntax-env.type-of exprs[1]}}
+    }
+    || use 'if' expression to infer common compile type
+    def if-contents = {{Array-of CurlSource}}
+    
+    def end-index = exprs.size - 1
+    {for expr key i in exprs do
+        {if-contents.append
+            {CurlSource.from-string
+                {switch i
+                 case 0, 1 do
+                    "if true then"
+                 case end-index - 1, end-index do
+                    "else"
+                 else
+                    "elseif true then"
+                }
+            }
+        }
+        {if-contents.append expr}
+    }
+    def key-if-contents =
+        {if-contents.filter-keys-clone
+            {fn i => ((i mod 4) == 0 or (i mod 4) == 1)}
+        }
+    def val-if-contents =
+        {if-contents.filter-keys-clone
+            {fn i => ((i mod 4) == 2 or (i mod 4) == 3)}
+        }
+    {return
+        {syntax-env.type-of
+            {expand-template {?key-if-contents}}
+        },
+        {syntax-env.type-of
+            {expand-template {?val-if-contents}}
+        }
+    }
+}

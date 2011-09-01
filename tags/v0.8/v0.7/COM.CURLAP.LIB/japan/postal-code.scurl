@@ -1,0 +1,237 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Jun Takamatsu, Hitoshi Okada
+|||
+
+{import * from CURL.DATA-ACCESS.BASE}
+
+{doc-next {purpose 郵便番号情報}}
+{define-class public serializable open PostalCode
+  ||全国地方公共団体コード(JIS X0401、X0402)………　半角数字
+  field public-get local-government-code:String
+  ||(旧)郵便番号(5桁)………………………………………　半角数字
+  field public-get old-postal-code:String
+  ||郵便番号(7桁)………………………………………　半角数字 
+  field public-get postal-code:String
+  ||都道府県名　…………　半角カタカナ(コード順に掲載)
+  field public-get prefecture-kana:String
+  ||市区町村名　…………　半角カタカナ(コード順に掲載)
+  field public-get city-kana:String
+  ||町域名　………………　半角カタカナ(五十音順に掲載)
+  field public-get town-kana:String
+  ||都道府県名　…………　漢字(コード順に掲載)
+  field public-get prefecture-kanji:String
+  ||市区町村名　…………　漢字(コード順に掲載)
+  field public-get city-kanji:String
+  ||町域名　………………　漢字(五十音順に掲載)
+  field public-get town-kanji:String
+  ||一町域が二以上の郵便番号で表される場合の表示　(注3)　(「1」は該当、「0」は該当せず) 
+  field public-get city-dup-flag:String
+  ||小字毎に番地が起番されている町域の表示
+  field public-get koaza-flg:String
+  ||丁目を有する町域の場合の表示
+  field public-get have-choume-flag:String
+  ||一つの郵便番号で二以上の町域を表す場合の表示　(注5)　(「1」は該当、「0」は該当せず)
+  field public-get town-dup-flag:String
+  
+  {constructor public {constructor
+                          local-government-code:String,
+                          old-postal-code:String,
+                          postal-code:String,
+                          prefecture-kana:String,
+                          city-kana:String,
+                          town-kana:String,
+                          prefecture-kanji:String,
+                          city-kanji:String,
+                          town-kanji:String,
+                          city-dup-flag:String,
+                          koaza-flg:String,
+                          have-choume-flag:String,
+                          town-dup-flag:String
+                      }
+    set self.local-government-code = local-government-code
+    set self.old-postal-code = old-postal-code
+    set self.postal-code = postal-code
+    set self.prefecture-kana = prefecture-kana
+    set self.city-kana = city-kana
+    set self.town-kana = town-kana
+    set self.prefecture-kanji = prefecture-kanji
+    set self.city-kanji = city-kanji
+    set self.town-kanji = town-kanji
+    set self.city-dup-flag = city-dup-flag
+    set self.koaza-flg = koaza-flg
+    set self.have-choume-flag = have-choume-flag
+    set self.town-dup-flag = town-dup-flag
+  }
+}
+
+{doc-next
+    {purpose 郵便番号情報{docref PostalCode}の配列}
+    {details
+        以下はサンプルです。
+        {curl-code
+            def pcs = {PostalCodes.from-csv {url "A.csv"}, {url "B.csv"}}
+            {if-non-null pc = {pcs.search-by-postal-code "1002000"} then
+                {output pc.postal-code & " is " & pc.prefecture-kanji & " " & pc.city-kanji & " " & pc.town-kanji}
+            }
+        }
+    }
+    {notes
+        日本郵便からダウンロードしたCSVを利用して、{docref PostalCodes}オブジェクトを生成します。
+        CSVデータは、当モジュールには含まれませんので、
+        http://www.post.japanpost.jp/zipcode/dl/readme.htmlから
+        ダウンロードしてください。
+    }
+}
+{define-class public serializable open CSVPostalCodes
+  {inherits {Array-of PostalCode}, PostalCodes}
+
+  let instance:#CSVPostalCodes
+  || TODO(?): indexes to improve performance. (postal-code:String, pointer-to-PostalCode)
+  || field private indexes:{HashTable-of String, PostalCode}
+
+  {constructor private {default}
+  }
+
+  {doc-next {purpose CSVPostalCodesのインスタンスを生成します。（シングルトン）}}
+  {define-proc public inline {get-instance}:CSVPostalCodes
+    {if CSVPostalCodes.instance == null then
+        set CSVPostalCodes.instance = {CSVPostalCodes}
+    }
+    {return {non-null CSVPostalCodes.instance}}
+  }
+  
+  {doc-next
+    {purpose 郵便番号を検索します。}
+  }
+  {method public open {search
+                          equality-proc:{proc-type {PostalCode}:bool}
+                      }:PostalCodes
+    let ret = {CSVPostalCodes}
+    {for pc:PostalCode in self do
+        {if {equality-proc pc} then
+            {ret.append pc}
+        }        
+    }
+    {return ret}
+  }
+
+  {doc-next
+    {purpose 郵便番号から郵便番号情報を検索します。}
+  }
+  {method public open {search-by-postal-code
+                          postal-code:String
+                      }:#PostalCode
+    def result =
+        {self.search
+            {proc {pc:PostalCode}:bool
+                {return pc.postal-code == postal-code}
+            }
+        } asa CSVPostalCodes
+    {return
+        {if result.size == 1 then
+            result[0]
+         else
+            null
+        }
+    }
+  }
+
+  {doc-next
+    {purpose 郵便番号から郵便番号情報を検索します。}
+    {notes このAPIは前方一致したものを全件返します。}
+  }
+  {method public open {search-by-postal-code-prefix
+                          postal-code-prefix:String
+                      }:PostalCodes
+    {return
+        {self.search
+            {proc {pc:PostalCode}:bool
+                {return {pc.postal-code.prefix? postal-code-prefix}}
+            }
+        }
+    }
+  }
+}
+
+{doc-next
+    {purpose 郵便番号情報のファクトリ}
+}
+{define-class public abstract PostalCodes
+
+  {factory public {from-csv ...:Url}:CSVPostalCodes
+    def postal-codes = {CSVPostalCodes.get-instance}
+    {if postal-codes.size == 0 then
+        {for url in ... do
+            || CSVをロードし、postal-codesにappend。
+            {if-non-null url then
+                let csv-reader:CsvDataReader = {CsvDataReader url, character-encoding="shift-jis"}
+                let values:StringArray = {StringArray}
+                let first-row:bool = true
+                {while {csv-reader.read-record out = values} != null do
+
+                    {postal-codes.append
+                        {PostalCode.constructor
+                            values[0],values[1],values[2],values[3],values[4],
+                            values[5],values[6],values[7],values[8],values[9],
+                            values[10],values[11],values[12]
+                        }
+                    }
+                }
+                {csv-reader.close}
+            }
+        }
+    }
+    {return postal-codes}
+  }
+
+
+|| TODO: 将来サポート予定。RTE7.0からサポートされるSQLite内のデータを利用。
+||--  {factory public {from-sqlite}:DBPostalCodes
+||--  }
+
+  {doc-next
+    {purpose 郵便番号を検索します。}
+  }
+  {method public abstract {search
+                              equality-proc:{proc-type {PostalCode}:bool}
+                          }:PostalCodes }
+
+  {doc-next
+    {purpose 郵便番号から郵便番号情報を検索します。}
+  }
+  {method public abstract {search-by-postal-code
+                              postal-code:String
+                          }:#PostalCode }
+
+  {doc-next
+    {purpose 郵便番号から郵便番号情報を検索します。}
+    {notes このAPIは前方一致したものを全件返します。}
+  }
+  {method public abstract {search-by-postal-code-prefix
+                              postal-code-prefix:String
+                          }:PostalCodes }
+}
+
+|| NOTE: usage
+||--{do
+||--    || COM.CURLAP.COMMONS.CACHINGと組み合わせれば、
+||--    || Curlを再起動した際もCSVから読み込む必要はなくなる。
+||--    def pcs = {PostalCodes.from-csv {url "A.csv"}, {url "B.csv"}}
+||--    {if-non-null pc = {pcs.search-by-postal-code "1002000"} then
+||--        {output pc.postal-code & " is " & pc.prefecture-kanji & " " & pc.city-kanji & " " & pc.town-kanji}
+||--    }
+||--}

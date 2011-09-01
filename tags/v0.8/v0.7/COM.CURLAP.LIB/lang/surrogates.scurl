@@ -1,0 +1,102 @@
+||| Copyright (C) 1998-2008, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+|| (since 0.7)
+
+{doc-next
+    {purpose サロゲートペア文字か否かをチェックします。}
+    {parameter high, 上位サロゲート}
+    {parameter low, 下位サロゲート}
+    {return-vals サロゲートペアの範囲か否か}
+}
+{define-proc public inline {is-surrogates?
+                               high:uint16,
+                               low:uint16
+                           }:bool
+    {return 
+        not (high < 0xD800 or high > 0xDBFF or low < 0xDC00 or low > 0xDFF)
+    }
+}
+
+{doc-next
+    {purpose サロゲートペア（2バイト）を文字列に変換します。}
+    {parameter high, 上位サロゲート}
+    {parameter low, 下位サロゲート}
+}
+{define-proc public inline {surrogates-to-char
+                               high:uint16,
+                               low:uint16
+                           }:String
+    def bytes =
+        {ByteVec 
+            {bit-srl high, 8} asa byte,
+            {bit-and high, 0x00FF} asa byte,
+            {bit-srl low, 8} asa byte,
+            {bit-and low, 0x00FF} asa byte
+        }
+    def (num-bytes-decoded, chars) = 
+        {decode-characters bytes, CharEncoding.ucs2-big-endian}
+    {return chars}
+}
+
+{doc-next
+    {purpose サロゲート文字列をバイトに変換します。}
+    {parameter char, 文字列}
+    {return-vals, 上位サロゲートと下位サロゲート}
+}
+{define-proc public {char-to-surrogates
+                        char:String
+                    }:(high:uint16, low:uint16)
+    def bytes = {ByteVec max-size = 4}
+    {encode-characters char, bytes, CharEncoding.ucs2-big-endian}
+    {return 
+        ({bit-or {bit-sll bytes[0], 8}, bytes[1]} asa uint16,
+         {bit-or {bit-sll bytes[2], 8}, bytes[3]} asa uint16)
+    }
+}
+
+|# Which one is best? #|
+||--{define-proc public inline {is-surrogates? bytes:ByteVec}:bool
+||--    {if bytes.size != 4 then
+||--        {error ""}
+||--    }
+||--    def high = {bit-or {bit-sll bytes[0], 8}, bytes[1]}
+||--    def low = {bit-or {bit-sll bytes[2], 8}, bytes[3]}
+||--    {if high < 0xD800 or high > 0xDBFF or 
+||--        low < 0xDC00 or low > 0xDFF
+||--     then
+||--        {return false}
+||--    }
+||--    {return true}
+||--}
+
+||--{define-proc public inline {surrogates-to-char bytes:ByteVec}:String
+||--    def (num-bytes-decoded, chars) = 
+||--        {decode-characters bytes, CharEncoding.ucs2-big-endian}
+||--    {return chars}
+||--}
+
+||--{define-proc public {char-to-surrogates
+||--                        char:String,
+||--                        char-encoding:CharEncoding = CharEncoding.utf8
+||--                    }:ByteVec
+||--    def bytes:ByteVec = {ByteVec max-size = 4}
+||--    {encode-characters char, bytes, char-encoding}
+||--    {return bytes}
+||--}
+

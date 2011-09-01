@@ -1,0 +1,54 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Izumi Kashiwagi
+|||
+
+{curl-file-attributes character-encoding = "utf8"}
+
+{doc-next
+    {purpose Set-of のユーティリティ}
+}
+{define-class public open SetUtil
+
+  {doc-next
+    {purpose Set-of に含まれる要素が一致するかどうかを確認します。}
+    {parameter s1, 対象のセット}
+    {parameter s2, 対象のセット}
+    {return-vals 全て一致した場合は true を返します。}
+  }
+  {define-proc public inline {equals? s1:any, s2:any}:bool
+    {return {s1.equal? s2}}
+  }
+
+  {doc-next
+    {purpose s1 に s2 を追加します。}
+    {parameter s1, 対象のセット。このセットに値が追加されます。}
+    {parameter s2, 対象のセット。このセットの値が s1 に追加されます。}
+  }
+  {define-proc public inline {concat s1:any, s2:any}:void
+    {s1.union s2}
+  }
+
+  {doc-next
+    {purpose s1 と s2 の要素を持つコレクションのクローンを返します。}
+    {parameter s1, 対象のセット。}
+    {parameter s2, 対象のセット。}
+    {return-vals s1 と s2 の要素を持つコレクションのクローンが返されます。}
+  }
+  {define-proc public inline {concat-clone s1:any, s2:any}:any
+    {return {s1.union-clone s2}}
+  }
+}

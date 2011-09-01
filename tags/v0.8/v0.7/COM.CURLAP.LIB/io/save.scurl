@@ -1,0 +1,124 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import SerializeOutputStream from CURL.IO.SERIALIZE}
+{import * from COM.CURLAP.LIB.DATA-ACCESS}
+
+{doc-next
+    {purpose テキストデータ（{docref StringInterface}）をファイルとして保存します。}
+    {details パラメータについては、{docref write-open}プロシージャを参照ください。}
+}
+{define-proc public inline {save-text-to-url
+                               url:Url,
+                               content:StringInterface,
+                               create?:bool = true,
+                               create-mode:int = 0o666,
+                               error-if-exists?:bool = false
+                           }:void
+    {with-open-streams
+        tos = {write-open
+                  url,
+                  create? = create?,
+                  create-mode = create-mode,
+                  error-if-exists? = error-if-exists?
+              }
+     do
+        {tos.write-one-string content}
+        {tos.flush}
+    }
+}
+
+{doc-next
+    {purpose バイトデータ（{docref ByteArray}）をファイルとして保存します。}
+    {details パラメータについては、{docref write-open-byte}プロシージャを参照ください。}
+}
+{define-proc public inline {save-byte-to-url
+                               url:Url,
+                               content:ByteArray,
+                               create?:bool = true,
+                               create-mode:int = 0o666,
+                               error-if-exists?:bool = false
+                           }:void
+    {with-open-streams
+        tos = {write-open-byte
+                  url,
+                  create? = create?,
+                  create-mode = create-mode,
+                  error-if-exists? = error-if-exists?
+              }
+     do
+        {tos.write content}
+        {tos.flush}
+    }
+}
+
+{doc-next
+    {purpose シリアル化可能なオブジェクトをファイルとして保存します。}
+    {parameter url, 保存先}
+    {parameter content, オブジェクト（要serializable）}
+    {details パラメータについては、{docref write-open-byte}プロシージャを参照ください。}
+}
+{define-proc public inline {save-object-to-url
+                               url:Url,
+                               content:any,
+                               create?:bool = true,
+                               create-mode:int = 0o666,
+                               error-if-exists?:bool = false
+                           }:void
+    {with-open-streams
+        out = {SerializeOutputStream
+                  {write-open-byte
+                      url,
+                      create? = create?,
+                      create-mode = create-mode,
+                      error-if-exists? = error-if-exists?
+                  }
+              }
+     do
+        {out.write-one content}
+        {out.flush}
+    }
+}
+
+{doc-next
+    {purpose {docref RecordSet}をファイルとして保存します。}
+    {parameter url, 保存先}
+    {parameter content, {docref RecordSet}}
+    {details パラメータについては、{docref write-open-byte}プロシージャを参照ください。}
+    {notes フィールドとデータを保存します。但しイベントハンドラや状態は保存できません。}
+}
+{define-proc public {save-record-set-to-url
+                        url:Url,
+                        content:RecordSet,
+                        create?:bool = true,
+                        create-mode:int = 0o666,
+                        error-if-exists?:bool = false
+                    }:void
+    {with-open-streams
+        out = {SerializeOutputStream
+                  {write-open-byte
+                      url,
+                      create? = create?,
+                      create-mode = create-mode,
+                      error-if-exists? = error-if-exists?
+                  }
+              }
+     do
+        {RecordSetUtil.write-to-stream out, content}
+    }
+}

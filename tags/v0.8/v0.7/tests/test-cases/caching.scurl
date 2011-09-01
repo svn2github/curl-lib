@@ -1,0 +1,154 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from COM.CURLAP.LIB.CACHING}
+
+{TestSuite "COM.CURLAP.LIB.CACHING",
+    {test-case "cache",
+        
+        || caching
+        def cm = {CacheManager.get-instance}
+        def cache1 = {cm.create-cache
+                         "cache1",
+                         max-elements-in-cache = 3,
+                         expire-idle-time = 1s
+                     }
+        {cache1.set "k1", {Array}}
+        {cache1.set "k2", {HashTable}}
+        {cache1.set "k3", 10}
+        {TestCondition.assert cache1.cache-names[0] == "k1"} || old
+        {TestCondition.assert cache1.cache-names[1] == "k2"}
+        {TestCondition.assert cache1.cache-names[2] == "k3"} || new
+
+        {TestCondition.assert-isa int, cache1["k3"]} ||*access
+        {TestCondition.assert-isa HashTable, cache1["k2"]} ||*access
+        {TestCondition.assert-isa Array, cache1["k1"]} ||*access
+        
+        {TestCondition.assert cache1.cache-names[0] == "k3"} || old
+        {TestCondition.assert cache1.cache-names[1] == "k2"}
+        {TestCondition.assert cache1.cache-names[2] == "k1"} || new
+
+        {cache1.set "k4", "str"}
+        
+        {TestCondition.assert cache1.cache-names.size == 3} || size
+        {TestCondition.assert cache1.size == 3} || size
+
+        {TestCondition.assert cache1.cache-names[0] == "k2"} || old
+        {TestCondition.assert cache1.cache-names[1] == "k1"}
+        {TestCondition.assert cache1.cache-names[2] == "k4"} || new
+        {TestCondition.assert not {cache1.exists? "k3"}}
+        {TestCondition.assert {cache1.exists? "k1"}}
+        {TestCondition.assert {cache1.exists? "k2"}}
+        {TestCondition.assert {cache1.exists? "k4"}}
+
+        || expire-idle-time test
+        {sleep 0.6s}
+        cache1["k1"]
+        {sleep 0.6s}
+        {TestCondition.assert {cache1.exists? "k1"}}
+        {TestCondition.assert not {cache1.exists? "k2"}}
+        {TestCondition.assert not {cache1.exists? "k4"}}
+
+        || expire-live-time test
+        def cache2 = {cm.create-cache
+                         "cache2",
+                         expire-idle-time = 1s,
+                         expire-live-time = 1s
+                     }
+        {cache2.set "k1", {Array}}
+        {cache2.set "k2", {HashTable}}
+        {cache2.set "k3", 10}
+
+        {sleep 1.5s}
+        {TestCondition.assert {cache2.exists? "k1", remove-if-expired? = false}}
+        {TestCondition.assert {cache2.exists? "k2", remove-if-expired? = false}}
+        {TestCondition.assert {cache2.exists? "k3", remove-if-expired? = false}}
+
+        || shrink
+        {TestCondition.assert cache2.size == 3}
+        {cache2.shrink}
+        {TestCondition.assert cache2.size == 0}
+
+        || clear
+        {{CacheManager.get-instance}.clear}
+    },
+    {test-case "persistent disk",
+        def cm = {CacheManager.get-instance}
+        def cache =
+            {cm.create-cache "disk", persistent-disk = {url "file/disk.cache"}}
+        set cache["k1"] = "val1"
+        set cache["k2"] = "val2"
+        {cache.flush} || persistent disk
+        {cm.remove-cache "disk", with-persistent-disk? = false}
+        {TestCondition.assert not {cm.exists-cache? "disk"}}
+
+        || restore from disk
+        def cache-from-disk =
+            {cm.create-cache "disk", persistent-disk = {url "file/disk.cache"}}
+        {TestCondition.assert {cache-from-disk.exists? "k1"}}
+        {TestCondition.assert {cache-from-disk.exists? "k2"}}
+        set cache-from-disk["k3"] = "val3"
+        {cache-from-disk.flush} || persistent disk
+        {cm.remove-cache "disk", with-persistent-disk? = false}
+        {TestCondition.assert not {cm.exists-cache? "disk"}}
+
+        || restore from disk again
+        def cache-again =
+            {cm.create-cache "disk", persistent-disk = {url "file/disk.cache"}}
+        {TestCondition.assert {cache-again.exists? "k1"}}
+        {TestCondition.assert {cache-again.exists? "k2"}}
+        {TestCondition.assert {cache-again.exists? "k3"}}
+        {cm.remove-cache "disk"} || delete with persistent-disk
+
+        || not restore from disk
+        def cache-again-again =
+            {cm.create-cache "disk", persistent-disk = {url "file/disk.cache"}}
+        {TestCondition.assert not {cache-again-again.exists? "k1"}}
+        {TestCondition.assert not {cache-again-again.exists? "k2"}}
+        {TestCondition.assert not {cache-again-again.exists? "k3"}}
+        {cm.remove-cache "disk"}
+    },
+    {test-case "with-cache macro",
+        def cache = {{CacheManager.get-instance}.create-cache "cache3"}
+        def v1 = 
+            {with-cache "k1" of "cache3" do
+                def v = "test"
+                v
+            }
+        {TestCondition.assert v1 == "test"}
+
+        def v2 =
+            {with-cache "k1" of "cache3" do
+                {TestCondition.fail message = "never run"}
+                def v = "xxxx"
+                v
+            }
+        {TestCondition.assert v2 == "test"} || from cache
+
+        {cache.remove "k1"}
+        def v3 =
+            {with-cache "k1" of "cache3" do
+                def v = "foo"
+                v
+            }
+        {TestCondition.assert v3 == "foo"} || not from cache
+
+        || clear
+        {{CacheManager.get-instance}.clear}
+    }
+}

@@ -1,0 +1,384 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from COM.CURLAP.LIB.COLLECTIONS}
+{import * from COM.CURLAP.LIB.IO}
+
+||
+|| Caching
+||
+
+|| CacheManager as singleton
+
+{doc-next
+    {purpose キャッシュを管理するクラス}
+}
+{define-class public open CacheManager
+  
+  let private instance:#CacheManager = null 
+  field private caches:{HashTable-of String, Cache}
+
+  {constructor private {default}
+    set self.caches = {{HashTable-of String, Cache}}
+  }
+
+  {doc-next
+    {purpose CacheManagerのインスタンスを生成します。（シングルトン）}
+  }
+  {define-proc public {get-instance}:CacheManager
+    {if CacheManager.instance == null then
+        set CacheManager.instance = {CacheManager}
+    }
+    {return {non-null CacheManager.instance}}
+  }
+
+  {doc-next
+    {purpose キャッシュ名が存在しているか否かをチェックします。}
+    {parameter name, キャッシュ名}
+    {return-vals 存在可否}
+  }
+  {method public open {exists-cache? name:String}:bool
+    {return {self.caches.key-exists? name}}
+  }
+  
+  {doc-next
+    {purpose Cacheオブジェクトを取得します。}
+    {parameter name, キャッシュ名}
+    {return-vals キャッシュ}
+  }
+  {method public open {get-cache name:String}:Cache
+    {return self.caches[name]}
+  }
+  
+  {doc-next
+    {purpose Cacheオブジェクトを生成及びCacheManagerに登録します。}
+    {parameter name, キャッシュ名}
+    {parameter expire-live-time,
+        保存期間（登録してから保存される期間）を指定。デフォルト(-1s)は無制限。
+    }
+    {parameter expire-idle-time,
+        保存期間（最終アクセスしてから保存される期間＝アイドル時間）を指定。デフォルト(-1s)は無制限。
+    }
+    {parameter max-elements-in-cache, このCacheオブジェクトに保持できるオブジェクトの最大数を指定}
+    {parameter persistent-disk, キャッシュを永続化するファイル名}
+    {notes persistent-diskがnullの場合、永続化されません。}
+  }
+  {method public open {create-cache
+                          name:String,
+                          expire-live-time:Time = -1s,    || unlimited
+                          expire-idle-time:Time = -1s,    || unlimited
+                          max-elements-in-cache:int = -1, || unlimited
+                          persistent-disk:#Url = null     || 永続化
+                      }:Cache
+    {if {self.exists-cache? name} then
+        {error "キャッシュが既に存在します。"}
+    }
+    {if expire-live-time != -1s then
+        {if expire-live-time < expire-idle-time or expire-idle-time == -1s then
+            {error "expire-idle-timeはexpire-live-time以上である必要があります。"}
+        }
+    }
+
+    set self.caches[name] =
+        {if persistent-disk != null　and
+            {local-file-exists? {non-null persistent-disk}}
+         then
+            || キャッシュが永続化されている場合、そこからキャッシュをロードする
+            def cache =
+                {read-object-from-url {non-null persistent-disk}} asa Cache
+            {cache.shrink}
+            cache
+         else
+            {Cache
+                expire-live-time = expire-live-time,
+                expire-idle-time = expire-idle-time,
+                max-elements-in-cache = max-elements-in-cache,
+                persistent-disk = persistent-disk
+            }
+        }
+    {return self.caches[name]}
+  }
+  
+  {doc-next
+    {purpose Cacheオブジェクトを削除します。}
+    {parameter name, キャッシュ名}
+    {parameter with-persistent-disk?,
+        永続化しているデータも削除するか否か（但し存在しなければ何も実施しません。）
+    }
+  }
+  {method public open {remove-cache
+                          name:String,
+                          with-persistent-disk?:bool = true
+                      }:void
+    {if with-persistent-disk? then
+        {if-non-null disk = self.caches[name].persistent-disk then
+            {if {local-file-exists? disk} then
+                {delete disk, error-if-missing? = false}
+            }
+        }
+    }
+    {self.caches.remove name}
+  }
+
+  {doc-next
+    {purpose Cacheオブジェクトをすべて削除します。}
+  } || TODO: remove disk cache, too.
+  {method public open {clear}:void
+    {self.caches.clear}
+  }
+}
+
+
+{doc-next
+    {purpose キャッシュのクラス}
+    {notes
+        オーバーフローした際のディスクキャッシュは、将来サポート予定です。
+    } || TODO: overflow-to-disk, is-eternal? in SQLite of CurlRTE7.0 
+}
+{define-class public serializable open Cache
+
+  || cache properties
+  field public-get private-set expire-live-time:Time
+  field public-get private-set expire-idle-time:Time
+  field public-get private-set max-elements-in-cache:int
+  field public-get private-set persistent-disk:#Url
+
+  || TODO:
+  ||   expire-date:DateTime
+  ||   set-policy: SetPolicy.SET-ALWAYS, .ADD_ONLY_IF.., .REPLACE-ONLY-IF.. like GAE
+  ||   get-multi method: 一気に複数データを取得。しかしクライアントは分散ディスクでないので効果ないかも。
+  
+  || TODO: 現在はメモリ管理のみです。将来ディスクへの管理を対応予定。
+||--  field public-get private-set max-memory-usage:int64 
+||--  field public-get private-set overflow-to-disk?:bool || overflowした場合、一時的にディスクへ退避
+||--  field public-get private-set disk-persistent?:int64 || 永続情報としてディスクへ保存
+||--  field public-get private-set is-eternal?:int64 
+
+  || cache data
+  field private cache-table:{OrderedHashTable-of String, CacheElement}
+
+  {doc-next
+    {purpose キャッシュのキー名一覧を取得します。}
+  }
+  {getter public {cache-names}:{Array-of String}
+    {return self.cache-table.ordered-keys}
+  }
+
+  {doc-next
+    {purpose 保存されているキャッシュデータの数}
+  }
+  {getter public {size}:int
+    {return self.cache-table.size}
+  }
+
+  {doc-next
+    {purpose Cacheオブジェクトを生成します。}
+    {parameter expire-live-time,
+        保存期間（登録してから保存される期間）を指定。デフォルト(-1s)は無制限。
+    }
+    {parameter expire-live-time,
+        保存期間（最終アクセスしてから保存される期間＝アイドル時間）を指定。デフォルト(-1s)は無制限。
+    }
+    {parameter max-elements-in-cache, このCacheオブジェクトに保持できるオブジェクトの最大数を指定}
+    {parameter persistent-disk, キャッシュを永続化するファイル名}
+    {notes
+        保存期間を過ぎますとキャッシュから削除されます。
+        削除のタイミングは、shrink、get、set、exist?メソッド実行時に行われます。
+        また、persistent-diskがnullの場合、永続化されません。nullでない場合は、
+        指定したURLにflushメソッドのタイミングで永続化されます。
+        serializableでない値（オブジェクト）がキャッシュ内に存在する場合は、永続化できません。
+        保存期間が無制限の場合、アプレット終了時にはクリアされますので、flushする必要があります。
+    }
+  }
+  {constructor package {default
+                           expire-live-time:Time = -1s,    || unlimited
+                           expire-idle-time:Time = -1s,    || unlimited
+                           max-elements-in-cache:int = -1, || unlimited
+                           persistent-disk:#Url = null
+                       }
+    set self.cache-table = {{OrderedHashTable-of String, CacheElement}}
+    set self.expire-live-time = expire-live-time
+    set self.expire-idle-time = expire-idle-time
+    set self.max-elements-in-cache = max-elements-in-cache
+    set self.persistent-disk = persistent-disk
+  }
+
+  {doc-next
+    {purpose キャッシュにデータが存在するかをチェックします。}
+    {parameter name, キー名}
+    {parameter remove-if-expired?, 保存期間を超えているデータの場合、同時に削除するか否か}
+    {return-vals 存在可否}
+    {notes {curl-code remove-if-expired?=true}の場合, 保存期間を超えていると、falseが返ります。}
+  }
+  {method public {exists?
+                     name:String,
+                     remove-if-expired?:bool = true
+                 }:bool
+    def cache-table = self.cache-table
+    {if not {cache-table.key-exists? name} then
+        {return false}
+    }
+    {if remove-if-expired? and {self.expired? cache-table[name]} then
+        {cache-table.remove name}
+        {return false}
+    }
+    {return true}
+  }
+  
+  {doc-next
+    {purpose データをキャッシュします。}
+    {parameter name, キー名}
+    {parameter value, 値}
+  }
+  {method public {set
+                     name:String,
+                     value:any
+                 }:void
+    def max-elements = self.max-elements-in-cache
+    def cache-table = self.cache-table
+    {if max-elements != -1 and
+        cache-table.size > 0 and
+        max-elements <= cache-table.size and
+        not {self.exists? name}
+     then
+        || delete oldest one, if overflows.(LRU)
+        {self.remove self.cache-names[0]}
+    }
+    set cache-table[name] = {CacheElement value, {DateTime}, {DateTime}}
+  }
+
+  {doc-next
+    {purpose キャッシュされているデータを取得します。}
+    {parameter name, キー名}
+    {parameter remove-if-expired?, 保存期間を超えているデータの場合、同時に削除するか否か}
+    {return-vals キャッシュ（存在しない場合はnull）}
+    {notes
+        {curl-code remove-if-expired?=true}の場合, 保存期間を超えていると、nullが返ります。
+        また、キーが存在しない場合もnullが返ります。
+    }
+  }
+  {method public {get
+                     name:String,
+                     remove-if-expired?:bool = true
+                 }:#any
+    {if not {self.exists? name, remove-if-expired? = remove-if-expired?} then
+        {return null}
+    }
+    || for LRU
+    def ordered-keys = self.cache-table.ordered-keys
+    {ordered-keys.remove {ordered-keys.find name}}
+    {ordered-keys.append name}
+
+    def element = self.cache-table[name]
+    set element.last-access-date = {DateTime}
+    {return element.value}
+  }
+
+  {doc-next
+    {purpose キャッシュされているデータを削除します。}
+  }
+  {method public {remove
+                     name:String
+                 }:void
+    {if not {self.exists? name, remove-if-expired? = false} then
+        {return}
+    }
+    {self.cache-table.remove name}
+  }
+
+  {doc-next
+    {purpose キャッシュされているデータで、保存期間が超えているデータをすべて削除します。}
+  }
+  {method public {shrink}:void
+    || shrink expired elements
+    def cache-names = self.cache-names
+    def size = cache-names.size - 1
+    {for i:int = size downto 0 do
+        def name = cache-names[i]
+        def value = self.cache-table[name]
+        {if {self.expired? value} then
+            {self.remove name}
+        }
+    }
+  }
+
+  {doc-next
+    {purpose キャッシュ内のすべてのデータを削除します。}
+  }
+  {method public {clear}:void
+    {self.cache-table.clear}
+  }
+
+  {doc-next
+    {purpose
+        キャッシュ内のすべてのデータを永続化します。
+        （指定したファイルpersistent-diskに書き出します。）
+    }
+    {notes 既にファイルが存在する場合は、上書きします。}
+  }
+  {method public {flush}:void
+    || write to disk
+    {if-non-null disk = self.persistent-disk then
+        {try
+            {delete disk, error-if-missing? = false}
+            {save-object-to-url disk, self, error-if-exists? = true}
+         catch e:Exception do
+            {delete disk, error-if-missing? = false}
+            {throw e}
+        }
+    }
+  }
+
+  || - - - private - - - 
+  {method private {expired? element:CacheElement}:bool
+    {if self.expire-idle-time == -1s then
+        {return false}
+    }
+    
+    def now = {DateTime}
+    {if self.expire-live-time == -1s then
+        {return {element.last-access-date.elapsed ending = now} > self.expire-idle-time}
+    }
+    {return
+        {element.create-date.elapsed ending = now} > self.expire-live-time or
+        {element.last-access-date.elapsed ending = now} > self.expire-idle-time
+    }
+  }
+}
+
+{doc-next
+    {purpose Cacheの内部にて利用されます。通常開発者は利用しません。}
+}
+{define-class public serializable CacheElement
+
+  field package value:any
+  field package create-date:DateTime
+  field package last-access-date:DateTime || for LRU
+
+  {constructor package {default
+                           value:any,
+                           create-date:DateTime,
+                           last-access-date:DateTime
+                       }
+    set self.value = value
+    set self.create-date = create-date
+    set self.last-access-date = last-access-date
+  }
+}
+
+|| TODO: Shrinker with subapplet

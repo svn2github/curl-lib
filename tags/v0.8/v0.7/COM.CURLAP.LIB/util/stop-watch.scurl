@@ -1,0 +1,78 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{doc-next
+    {purpose
+        このマクロで囲まれた処理の実行時間をコンソールに出力します。
+        通常はデバックに利用されます。
+    }
+    {details
+        例えば以下のように利用することとなります。
+        {curl-code
+            {stop-watch
+                finish-proc =
+                    {proc {elapsed-time:Time}:void
+                        {output "elapsed time=" & elapsed-time}
+                    }
+             do
+                {for i = 0 below 100000 do
+                    {output "i = " & i}
+                }
+            }
+
+            || もしくはfinish-procを省略
+            {stop-watch do
+                {for i = 0 below 100000 do
+                    {output "i = " & i}
+                }
+            }
+        }
+        上記結果は、「elapsed time=10s」のように出力されます。
+        また、finish-procを省略できます。省略した場合は、実行時間のみコンソールに表示されます。
+        {curl-code
+            {stop-watch do
+                {for i = 0 below 100000 do
+                    {output "i = " & i}
+                }
+            }
+        }
+    }
+}
+{define-macro public {stop-watch
+                         ?finish-proc:{optional finish-proc = ?:expression}
+                      do
+                         ?body:tokens
+                     }
+    def p = {syntax-switch finish-proc
+             case {pattern finish-proc = ?fp:expression} do
+                {expand-template {?fp {sw.elapsed}}}
+             else
+                {expand-template {output {sw.elapsed}}}
+            }
+    {return
+        {expand-template
+            def sw = {StopWatch}
+            {sw.start}
+            ?body
+            {sw.stop}
+            ?p
+        }
+    }
+}
+
+

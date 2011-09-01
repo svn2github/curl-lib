@@ -1,0 +1,90 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Taketo Fujishiro
+|||
+
+{doc-next
+    {purpose
+        任意の数の組のGCD（最大公約数）を求める。
+    }
+    {parameter ..., int64}
+    {parameter out, 最大公約数:int64}
+}
+||TODO:binary-methodを使用して高速化する必要あり。
+||TODO:エラーハンドリングは未実装
+{define-proc public inline {gcd ...:int64}:int64
+    let (x:int64,y:int64) = (-1,-1)
+    
+    {for i in {splice ...} do
+        ||TODO:refactoring
+        {if x == -1 then
+            ||初回のため、値がセットされていない場合
+            set x = i
+         else 
+            set y = i
+            {while y != 0 do
+                set (x,y) = (y, x mod y)
+            }
+        }
+    }
+    {return x}
+}
+
+
+{doc-next
+    {purpose
+        任意の数の組のLCM（最小公倍数）を求める。
+    }
+    {parameter ..., int64}
+    {parameter out, 最小公倍数:int64}
+}
+||TODO:エラーハンドリングは未実装
+{define-proc public inline {lcm ...:int64}:int64
+    ||(floor (a * b)/ gcd(a,b))
+    let (x:int64,y:int64) = (-1,-1)
+    {for i in {splice ...} do
+        ||TODO:refactoring
+        {if x == -1 then
+            ||初回のため、値がセットされていない場合
+            set x = i
+         else
+            set y = i
+            def g = {gcd x, y}    
+            set x = (x * y) div g
+        }
+    }
+    {return x}
+}
+
+{doc-next
+    {purpose 階乗を計算する。}
+    {parameter v, 数値}
+    {return-vals 計算結果}
+    {details
+        以下はサンプルです。
+        {curl-code
+            || 6!
+            {factorial 6} || 720
+        }
+    }
+}
+{define-proc public {factorial v:uint64}:uint64
+    let x:uint64 = 1
+    {for i:uint64 = v above 1 do
+        set x = x * i 
+    }
+    {return x}
+}

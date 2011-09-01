@@ -1,0 +1,286 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import * from COM.CURLAP.LIB.DATA-ACCESS}
+
+{define-class public Foo
+  field public col1:int
+  field public col2:String
+  field public col3:DateTime
+
+  {constructor public {default col1:int, col2:String, col3:DateTime}
+    set self.col1 = col1
+    set self.col2 = col2
+    set self.col3 = col3
+  }
+}
+
+{TestSuite "COM.CURLAP.LIB.DATA-ACCESS",
+    {test-case "create-table",
+        def rs = {create-table 
+                     col1 String   not null,
+                     col2 int,
+                     col3 DateTime NOT NULL,
+                     col4 {StandardStringDomain},
+                     col5 ,        || any
+                     col6 not null || any
+                 }
+        def fields = rs.fields
+        {TestCondition.assert fields.size == 6}
+        {TestCondition.assert fields["col1"].domain isa StandardStringDomain}
+        {TestCondition.assert fields["col1"].nullable?}
+        {TestCondition.assert fields["col2"].domain isa StandardIntDomain}
+        {TestCondition.assert not fields["col2"].nullable?}
+        {TestCondition.assert fields["col3"].domain isa StandardDateTimeDomain}
+        {TestCondition.assert fields["col3"].nullable?}
+        {TestCondition.assert fields["col4"].domain isa StandardStringDomain}
+        {TestCondition.assert not fields["col4"].nullable?}
+        {TestCondition.assert fields["col5"].domain isa StandardAnyDomain}
+        {TestCondition.assert not fields["col5"].nullable?}
+        {TestCondition.assert fields["col6"].domain isa StandardAnyDomain}
+        {TestCondition.assert fields["col6"].nullable?}
+    },
+    {test-case "RecordDataUtil/RecordUtil",
+        def rs = {RecordSet
+                     {RecordFields
+                         {RecordField "col1", domain = int},
+                         {RecordField "col2", domain = String},
+                         {RecordField "col3", domain = DateTime}
+                     }
+                 }
+        {TestCondition.assert rs.size == 0}
+        def foos =
+            {{Array-of Foo}
+                {Foo 1, "val1", {DateTime year=2009, month=1, day=1}},
+                {Foo 2, "val2", {DateTime year=2009, month=2, day=2}},
+                {Foo 3, "val3", {DateTime year=2009, month=3, day=3}}
+            }
+        {for foo in foos do
+            {rs.append {RecordDataUtil.create foo}}
+        }
+        {rs.commit}
+        {TestCondition.assert rs.size == 3}
+        {for r in rs do
+            || key-exists?
+            {TestCondition.assert {RecordUtil.key-exists? r, "col1"}}
+            {TestCondition.assert {RecordUtil.key-exists? r, "col2"}}
+            {TestCondition.assert {RecordUtil.key-exists? r, "col3"}}
+            {TestCondition.assert not {RecordUtil.key-exists? r, "col4"}}
+            def v1 = r["col1"]
+            def v2 = r["col2"]
+            {TestCondition.assert v1 == 1 or v1 == 2 or v1 == 3} 
+            {TestCondition.assert v2 == "val1" or v2 == "val2" or v2 == "val3"} 
+        }
+        def extracted-foos = {{Array-of Foo}}
+        {for r in rs do
+            def foo = {Foo 0, "", {DateTime year=2008, month=1, day=1}}
+            {RecordUtil.set-values r, foo}
+            {TestCondition.assert foo.col1 != 0} 
+            {TestCondition.assert foo.col2 != ""}
+            {TestCondition.assert foo.col3.info.year != 2008}
+        }
+    },
+    {test-case "RecordFieldUtil",
+        || auto increment
+        def rs = {RecordSet
+                     {RecordFields
+                         {RecordField
+                             "col1", domain = int,
+                             default-value = {RecordFieldUtil.auto-increment}
+                         },
+                         {RecordField
+                             "col2", domain = String
+                         }
+                     }
+                 }
+        {rs.append {RecordData col2 = "val1"}}
+        {rs.append {RecordData col2 = "val2"}}
+        {rs.append {RecordData col2 = "val3"}}
+        {for r in rs do
+            def v = r["col1"]
+            {TestCondition.assert v == 1 or v == 2 or v == 3}
+        }
+    },
+    {test-case "clone",
+        def rs = {RecordSet
+                     {RecordFields
+                         {RecordField "col1", domain = int},
+                         {RecordField "col2", domain = String}
+                     },
+                     {RecordData col1 = 1, col2 = "value1"},
+                     {RecordData col1 = 2, col2 = "value2"},
+                     {RecordData col1 = 3, col2 = "value3"}
+                 }
+        def rs-clone = {RecordSetUtil.clone rs}
+        {TestCondition.assert rs-clone.size == 3}
+        {TestCondition.assert {RecordSetUtil.equal? rs, rs-clone}}
+
+        {rs.delete-all}
+        {rs.commit}
+        {TestCondition.assert rs.size == 0}
+        {TestCondition.assert rs-clone.size == 3}
+        {TestCondition.assert not {RecordSetUtil.equal? rs, rs-clone}}
+    },
+    {test-case "equal?",
+        def rs1 = {RecordSet
+                      {RecordFields
+                          {RecordField "col1", domain = int},
+                          {RecordField "col2", domain = String}
+                      },
+                      {RecordData col1 = 1, col2 = "value1"},
+                      {RecordData col1 = 2, col2 = "value2"},
+                      {RecordData col1 = 3, col2 = "value3"}
+                  }
+        def rs2 = {RecordSet
+                      {RecordFields
+                          {RecordField "col1", domain = int},
+                          {RecordField "col2", domain = String}
+                      },
+                      {RecordData col1 = 1, col2 = "value1"},
+                      {RecordData col1 = 3, col2 = "value3"}
+                  }
+        {TestCondition.assert not {RecordSetUtil.equal? rs1, rs2}}
+        {rs2.append {RecordData col1 = 2, col2 = "value2"}}
+        {TestCondition.assert {RecordSetUtil.equal? rs1, rs2}}
+
+        {rs1.append {RecordData col1 = 4, col2 = "value4"}}
+        {TestCondition.assert not {RecordSetUtil.equal? rs1, rs2}}
+        {rs2.append {RecordData col1 = 4, col2 = "valuexxxx"}}
+        {TestCondition.assert not {RecordSetUtil.equal? rs1, rs2}}
+    },
+    {test-case "append-some-records/to-arrays/to-hashtables",
+        || append-records
+        def rs = {RecordSet
+                     {RecordFields
+                         {RecordField "col1", domain = int},
+                         {RecordField "col2", domain = String}
+                     }
+                 }
+        def data1 = {{Array-of Array}
+                        {Array 1, "test1"},
+                        {Array 2, "test2"},
+                        {Array 3, "test3"}
+                    }
+        {TestCondition.assert rs.size == 0}
+        {RecordSetUtil.append-arrays rs, data1}
+        {TestCondition.assert rs.size == 3}
+
+        def data2 = {{Array-of {HashTable-of String, any}}
+                        {{HashTable-of String, any} "col1", 4, "col2", "test4"},
+                        {{HashTable-of String, any} "col1", 5, "col2", "test5"}
+                    }
+        {RecordSetUtil.append-hashtables rs, data2}
+        {TestCondition.assert rs.size == 5}
+
+        || to-arrays/to-hashtables
+        def arrays = {RecordSetUtil.to-arrays rs}
+        def hashtables = {RecordSetUtil.to-hashtables rs}
+        {TestCondition.assert arrays.size == 5}
+        {TestCondition.assert hashtables.size == 5}
+
+        {RecordSetUtil.append-arrays rs, arrays}
+        {TestCondition.assert rs.size == 10}
+        {RecordSetUtil.append-hashtables rs, hashtables}
+        {TestCondition.assert rs.size == 15}
+
+        def filtered-records =
+            {rs.select filter =
+                {RecordFilter
+                    {proc {r:Record}:bool
+                        {return r["col1"] == 5}
+                    }
+                }
+            }
+        {TestCondition.assert filtered-records.size == 3}
+    },
+    {test-case "append/modify/delete",
+        || append 
+        def rs = {RecordSet
+                     {RecordFields
+                         {RecordField "col1", domain = int},
+                         {RecordField "col2", domain = String}
+                     }
+                 }
+        {RecordSetUtil.append rs, col1 = 10, col2 = "test10"}
+        {RecordSetUtil.append rs, col1 = 20, col2 = "test20"}
+        {RecordSetUtil.append rs, col1 = 10, col2 = "test11"}
+        {RecordSetUtil.append rs, col1 = 20, col2 = "test22"}
+||--        {RecordSetUtil.output rs}
+        {TestCondition.assert {RecordSetUtil.appended-records rs}.size == 4}
+        {rs.commit}
+         
+        || modify
+        {TestCondition.assert
+            {RecordSetUtil.modify
+                rs,
+                condition = {proc {r:Record}:bool
+                                {return r["col1"] == 10}
+                            },
+                col2 = "xxxx"
+            }
+            == 2
+        }
+||--        {RecordSetUtil.output rs}
+        {TestCondition.assert {RecordSetUtil.modified-records rs}.size == 2}
+        {rs.commit}
+        
+        || delete
+        {TestCondition.assert
+            {RecordSetUtil.delete
+                rs,
+                condition = {proc {r:Record}:bool
+                                {return r["col1"] == 10}
+                            }
+            }
+            == 2
+        }
+||--        {RecordSetUtil.output rs}
+        {TestCondition.assert {RecordSetUtil.deleted-records rs}.size == 2}
+        {rs.revert}
+        {TestCondition.assert rs.size == 4}
+
+        || select
+        {TestCondition.assert
+            {RecordSetUtil.select
+                rs,
+                condition = {proc {r:Record}:bool
+                                {return r["col1"] == 20}
+                            },
+                order-by = "col1, col2"
+            }.size
+            == 2
+        }
+
+        || select-count
+        {TestCondition.assert
+            {RecordSetUtil.select-count
+                rs,
+                condition = {proc {r:Record}:bool
+                                {return r["col1"] == 20}
+                            }
+            }
+            == 2
+        }
+        {TestCondition.assert {RecordSetUtil.delete rs} == 4}|| This meaning is to delete all.
+        {rs.commit}
+        {TestCondition.assert rs.size == 0}
+    },
+    {test-case "serialize recordset",
+        || see the save-record-set-to-url/read-record-set-from-url in COM.CURLAP.LIB.IO 
+    }
+}

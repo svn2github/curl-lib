@@ -1,0 +1,87 @@
+||| Copyright (C) 1998-2008, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada, Yoshitaka Fukuta, Izumi Kashiwagi
+|||          Mitsunori Mine, Hiroshi Miyazaki
+|||
+
+{curl 6.0, 7.0 manifest}
+{curl-file-attributes character-encoding = "utf8"}
+{manifest COM.CURLAP.LIB}
+
+{component package COM.CURLAP.LIB.LANG,
+    location = "lang/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.COLLECTIONS,
+    location = "collections/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.DATA-ACCESS,
+    location = "data-access/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.IO,
+    location = "io/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.CRYPTO,
+    location = "crypto/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.ENVIRONMENT,
+    location = "environment/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.UI,
+    location = "ui/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.LOGGING,
+    location = "logging/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.CACHING,
+    location = "caching/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.JAPAN,
+    location = "japan/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.UTIL,
+    location = "util/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.MISC,
+    location = "misc/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.MATH,
+    location = "math/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.CODEC,
+    location = "codec/load.scurl"
+}
+
+{component package COM.CURLAP.LIB.MESSAGES,
+    location = "messages/load.scurl"
+}
+
+{component file Win32WMI.dll,
+    location = {url "environment/win32wmi.dll"}    
+}
+

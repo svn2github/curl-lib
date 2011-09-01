@@ -1,0 +1,52 @@
+||| Copyright (C) 1998-2009, Sumisho Computer Systems Corp. All Rights Reserved.
+
+||| Licensed under the Apache License, Version 2.0 (the "License");
+||| you may not use this file except in compliance with the License.
+||| You may obtain a copy of the License at
+||| 
+|||     http://www.apache.org/licenses/LICENSE-2.0
+||| 
+||| Unless required by applicable law or agreed to in writing, software
+||| distributed under the License is distributed on an "AS IS" BASIS,
+||| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+||| See the License for the specific language governing permissions and
+||| limitations under the License.
+
+|||
+||| @authors Hitoshi Okada
+|||
+
+{import public * from CURL.DATA-ACCESS.BASE}
+
+|| TODO: ExtendedRecordSet
+||  - DTO
+||  - unique key(support combination keys)
+||--{define-class public open serializable {ExtendedRecordSet t:ClassType}
+||--  {inherits BasicRecordSet}
+||--  
+||--  {method public open {select-as-dto}:t
+||--    {error "Not implemented yet"}
+||--  }
+||--
+||--  {method public open {select-one-as-dto}:t
+||--    {error "Not implemented yet"}
+||--  }
+||--
+||--  || override
+||--  {method public open {append val:any}:void
+||--    {super.append
+||--        {if val isa t then
+||--            {error "Not implemented yet"}
+||--         else
+||--            val
+||--        }
+||--    }
+||--}
+
+
+|| TODO: SQLiteSync
+||      (SQLiteに更新が発生した場合に、画面に表示されているレコードも更新される。)
+||  *Trigger, CallbackEvent, ...etc
+||--{define-class public open SQLiteSyncRecordSet
+||--  {inherits BasicRecordSet}
+||--}
